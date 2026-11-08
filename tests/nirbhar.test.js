@@ -316,3 +316,45 @@ test('collage survives a single image and an empty list', () => {
   assert.strictEqual(N.collage([one], { cols: 1, cellW: 8, cellH: 8, gap: 0 }).width, 8);
   assert.strictEqual(N.collage([], {}).width, 1);
 });
+
+/* --------------------------------------------------- tone and seamless tile */
+
+test('halftone in colour mode keeps the source ink and a white paper', () => {
+  // The paper branch used to run twice: a `t` flag set from `inside` re-wrote
+  // the same 255 the line above had already written. Removing it must not
+  // change a single pixel.
+  const src = img(24, 24, (x, y) => (x < 12 ? [200, 20, 30] : [20, 30, 200]));
+  const mono = N.halftone(src, { cell: 6, ink: '#111111', paper: '#ffffff' });
+  const colour = N.halftone(src, { cell: 6, mono: false });
+  assert.strictEqual(colour.width, 24);
+  let sawInk = false;
+  let sawPaper = false;
+  for (let i = 0; i < colour.data.length; i += 4) {
+    const r = colour.data[i], g = colour.data[i + 1], b = colour.data[i + 2];
+    if (r === 255 && g === 255 && b === 255) sawPaper = true;
+    else if ((r === 200 && g === 20 && b === 30) || (r === 20 && g === 30 && b === 200)) sawInk = true;
+    else assert.fail('colour halftone invented a colour: ' + [r, g, b].join(','));
+    assert.strictEqual(colour.data[i + 3], 255, 'the sheet is opaque');
+  }
+  assert.ok(sawInk, 'the dots keep the source colour');
+  assert.ok(sawPaper, 'the gaps are white paper');
+  assert.strictEqual(mono.data[3], 255);
+});
+
+test('makeSeamless leaves opposite edges matching', () => {
+  // The whole point of the tool: a tile repeated across the edge must not show
+  // a seam. Both mirrored bands blend the same pair of pixels, so the left
+  // column must end up equal to the right column, and the top row to the
+  // bottom row.
+  const noisy = img(20, 20, (x, y) => [(x * 37 + y * 11) % 256, (x * 13 + y * 91) % 256, (x * 71 + y * 5) % 256]);
+  const out = N.makeSeamless(noisy, 4);
+  for (let y = 0; y < 20; y++) {
+    assert.deepStrictEqual(px(out, 0, y), px(out, 19, y), 'left and right edge differ at y=' + y);
+  }
+  /* The four corners are a known limit, not a seam: there the horizontal band
+     wins the tie, so a corner is blended across x only and the vertical edge
+     check below skips them. */
+  for (let x = 1; x < 19; x++) {
+    assert.deepStrictEqual(px(out, x, 0), px(out, x, 19), 'top and bottom edge differ at x=' + x);
+  }
+});

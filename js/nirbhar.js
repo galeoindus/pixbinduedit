@@ -666,11 +666,9 @@
           var c = inside ? ink : paper;
           out.data[oi] = c[0]; out.data[oi + 1] = c[1]; out.data[oi + 2] = c[2];
         } else {
-          var t = inside ? 1 : 0;
           out.data[oi] = inside ? src[si] : 255;
           out.data[oi + 1] = inside ? src[si + 1] : 255;
           out.data[oi + 2] = inside ? src[si + 2] : 255;
-          if (!t) { out.data[oi] = 255; }
         }
         out.data[oi + 3] = 255;
       }
@@ -799,10 +797,11 @@
         var best = Math.min(dLeft, dRight, dTop, dBot);
         if (best < b) {
           t = smooth(1 - best / b);
-          if (best === dLeft) mixA = [(w - 1 - xx), yy];
-          else if (best === dRight) mixA = [(w - 1 - xx), yy];
-          else if (best === dTop) mixA = [xx, (h - 1 - yy)];
-          else mixA = [xx, (h - 1 - yy)];
+          /* mirror across whichever border is nearest: x for the left and the
+             right band, y for the top and the bottom */
+          mixA = (best === dLeft || best === dRight)
+            ? [(w - 1 - xx), yy]
+            : [xx, (h - 1 - yy)];
         }
         if (!mixA) continue;
         var oi = (yy * w + xx) * 4, mi = (mixA[1] * w + mixA[0]) * 4;

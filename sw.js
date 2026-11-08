@@ -2,7 +2,7 @@
    Cache-first for the app shell, network-first for everything else.
    The Nirbhar toolkit and the self-hosted fonts are part of the shell, so the
    editor keeps working with the network switched off. */
-const VERSION = 'pse-v5';
+const VERSION = 'pse-v6';
 const SHELL = [
   './',
   'index.html',
@@ -32,9 +32,14 @@ const SHELL = [
   'icons/icon-512.png'
 ];
 
+/* The shell is fetched with `cache: 'reload'`. A plain addAll is answered from
+   the browser's HTTP cache when it can be, which is how a bumped VERSION could
+   still install the previous deploy's files and leave an old editor on screen. */
+const SHELL_REQUESTS = SHELL.map((path) => new Request(path, { cache: 'reload' }));
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(VERSION).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(VERSION).then((cache) => cache.addAll(SHELL_REQUESTS)).then(() => self.skipWaiting())
   );
 });
 
