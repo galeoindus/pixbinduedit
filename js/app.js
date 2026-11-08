@@ -2250,7 +2250,13 @@
   function openTab(name) {
     S.tab = name;
     setTimeout(fitZoom, 260);
-    $$('#tabs .tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+    // aria-selected moves with the class, so the tab strip announces which
+    // panel is open instead of eight buttons in an unknown state.
+    $$('#tabs .tab').forEach(function (b) {
+      var on = b.dataset.tab === name;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
     $$('.pane').forEach(function (p) { p.classList.toggle('active', p.dataset.pane === name); });
     byId('side').classList.add('open');
   }

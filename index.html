@@ -55,6 +55,10 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/style.css">
+<!-- The editor is JavaScript from the first click, and nothing used to say so:
+     with scripting off the start screen still offered three buttons and the
+     whole toolbar, all inert. The notice below replaces them. -->
+<noscript><style>.start-cards,.start-templates,.start-foot{display:none}</style></noscript>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2312141a'/><rect x='3' y='3' width='5' height='5' fill='%236ee7b7'/><rect x='8' y='8' width='5' height='5' fill='%2338bdf8'/></svg>">
 </head>
 <body>
@@ -80,6 +84,7 @@
       <span class="start-templates-label">Or start from a template</span>
       <div class="template-row" id="template-row"></div>
     </div>
+    <noscript><p class="start-sub">Pixel Studio Edit draws on a canvas and saves to your device with JavaScript. Turn it on for this site and reload — everything else here works offline, with no account and no upload.</p></noscript>
     <div class="start-foot">
       <button class="btn" id="start-open">Open a project…</button>
       <button class="btn" id="start-skip">Continue where I left off</button>
@@ -203,15 +208,18 @@
 
     <aside class="side" id="side">
       <div class="sheet-grab" id="sheet-grab" aria-hidden="true"></div>
-      <div class="tabs" id="tabs">
-        <button class="tab active" data-tab="text">Text</button>
-        <button class="tab" data-tab="stickers">Sticker</button>
-        <button class="tab" data-tab="photo">Photo</button>
-        <button class="tab" data-tab="colour">Colour</button>
-        <button class="tab" data-tab="layers">Layers</button>
-        <button class="tab" data-tab="effects">FX</button>
-        <button class="tab" data-tab="3d">3D</button>
-        <button class="tab tab-nirbhar" data-tab="nirbhar">Nirbhar</button>
+      <!-- A tab strip that announced eight plain buttons and no state. The
+           roles and aria-selected below are kept in step by openTab() in
+           js/app.js, which is the only place the active tab changes. -->
+      <div class="tabs" id="tabs" role="tablist" aria-label="Editor panels">
+        <button class="tab active" role="tab" aria-selected="true" data-tab="text">Text</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="stickers">Sticker</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="photo">Photo</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="colour">Colour</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="layers">Layers</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="effects">FX</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="3d">3D</button>
+        <button class="tab tab-nirbhar" role="tab" aria-selected="false" data-tab="nirbhar">Nirbhar</button>
       </div>
 
       <div class="sheet-body" id="sheet-body">

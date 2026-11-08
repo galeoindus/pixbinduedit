@@ -42,7 +42,14 @@ h4 {
 }
 h4:first-child { margin-top: 0; }
 
-.app { display: grid; grid-template-rows: var(--top) 1fr; height: 100dvh; }
+/* `minmax(0, 1fr)` and not the default `auto` column. With `auto` the column is
+   sized by the widest thing inside it, and the widest thing is the eight-tab
+   strip in the side panel: 410px. On a 390px phone that made .app, .workspace
+   and the sheet 410px wide, so the right 20px of the quickbar hung off the
+   screen — and on a 360px phone 50px did — with html/body overflow:hidden and
+   no way to scroll it back. Measured before: .workspace 410 inside a 390
+   viewport. After: 390, and 360 on a 360. */
+.app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--top) 1fr; height: 100dvh; }
 
 /* ------------------------------------------------------------------ topbar */
 
@@ -57,6 +64,11 @@ h4:first-child { margin-top: 0; }
   z-index: 40;
 }
 .brand { font-weight: 700; font-size: 15px; letter-spacing: 0.2px; white-space: nowrap; }
+/* At 390 the top bar cannot hold the wordmark, the save status and four 44px
+   buttons: it measured 413 in a 390 box and the file menu hung 32px off the
+   screen. The wordmark is the only thing here that can give way, so it shrinks
+   and truncates rather than pushing a control out of reach. */
+.brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .brand span { color: var(--accent); }
 .spacer { flex: 1; }
 
@@ -299,6 +311,10 @@ h4:first-child { margin-top: 0; }
   cursor: pointer;
   white-space: nowrap;
   border-radius: 9px 9px 0 0;
+  /* The strip is a scroller, so its items must not shrink: they were, and a
+     shrunk tab clipped its own label — "Nirbhar" measured 60px of text in a
+     51px box. The strip scrolls instead. */
+  flex: none;
 }
 .tab:hover { color: var(--text); background: var(--raise); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: #16201d; }
@@ -1160,4 +1176,67 @@ input[type="color"] {
   .nb-body { grid-template-columns: 1fr; max-height: 70vh; }
   .nb-canvas-wrap canvas { max-height: 30vh; }
   .nb-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------------------------------------------------------------- colour scheme
+   The whole interface is dark, and the page never said so. `color-scheme` was
+   `normal` at every OS setting, which leaves the browser's own widgets on their
+   light theme: the dropdowns, the scrollbars, the file and colour pickers all
+   open as white panels over a near-black editor. Declaring the scheme once
+   fixes every one of them, and tells the browser it may paint the canvas
+   background itself. */
+:root { color-scheme: dark; }
+
+/* ------------------------------------------------------- one target size (touch)
+   The editor is dense on purpose and a mouse does not need 44px. A finger
+   does, and on a phone the header buttons were 38×38, the quick-bar toggles
+   32×32, the zoom buttons 25×28, the panel tabs 37 high and every .btn 38-41.
+   Below 980px — where the sheet and the rail are the touch surface — each of
+   them gets the 44px target. Desktop density is untouched. */
+@media (max-width: 980px) {
+  /* `flex: none` because the top bar is a flex row that was shrinking these
+     back to 33px wide even at a 44px width. */
+  .icon-btn { width: 44px; height: 44px; flex: none; }
+  .q-toggle { width: 44px; height: 44px; }
+  .zoombox button { min-width: 44px; min-height: 44px; padding: 5px 10px; }
+  /* min-width too: "FX" and "3D" were 29 and 31 wide with a 44px height. */
+  .tab { min-height: 44px; min-width: 44px; }
+  .btn, .toggle { min-height: 44px; }
+  /* The sticker picker was a 38px grid, the colour swatches 42, and the text
+     and colour fields 41 high. Same bar, same block. */
+  .sticker-grid { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); }
+  /* Eight to a row of swatches were 40px; six to a row at 44 on a phone. */
+  .palette { grid-template-columns: repeat(6, 1fr); }
+  .palette button { min-height: 44px; }
+  select, input[type="text"], input[type="color"], .big-swatch { min-height: 44px; }
+  input[type="color"], .big-swatch { min-width: 44px; }
+  /* Range inputs are deliberately left alone: a slider is one continuous
+     control, not a set of targets, and a 44px-tall track would double the
+     height of every panel. Its thumb is already the touch point. */
+}
+
+/* ------------------------------------------------------------- the tab strip
+   Eight tabs need 416px and the desktop panel is 330px wide, so the last one —
+   Nirbhar, the whole offline toolkit — sat past the right edge of the panel
+   with the scrollbar hidden. At 1440 the tab's right edge measured 1519 in a
+   1440 viewport: invisible, and a mouse cannot scroll a strip with no visible
+   scrollbar. Above 980px, where the panel is a fixed column with no fixed
+   height, the strip may wrap onto a second row instead. The phone keeps the
+   single scrollable row, because the closed sheet is only 62px tall. */
+@media (min-width: 981px) {
+  .tabs { flex-wrap: wrap; overflow: visible; row-gap: 0; }
+}
+
+/* --------------------------------------------------------- reduced motion
+   Nothing here honoured `prefers-reduced-motion`: the sheet slid up, every
+   button translated on press and the toast faded, at 0.12–0.24s each. The
+   work still happens, it just arrives at once. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn:active, .toggle:active, .q-toggle:active, .icon-btn:active, .tool:active { transform: none !important; }
 }
