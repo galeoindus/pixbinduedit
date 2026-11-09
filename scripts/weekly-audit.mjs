@@ -70,12 +70,25 @@ if (!existsSync(swPath)) {
   problems.push('sw.js is missing');
 } else {
   const sw = readFileSync(swPath, 'utf8');
-  const shell = [...sw.matchAll(/["'](\/[^"'\s]+\.(?:js|css|json|html|png|svg|woff2?))["']/g)].map((m) => m[1]);
-  const unique = [...new Set(shell)];
-  for (const path of unique) {
-    if (!existsSync(join(ROOT, path))) problems.push(`service worker precaches a missing file: ${path}`);
+  /* The shell is written with relative paths ('index.html', 'fonts/x.woff2')
+     because the editor is served from a sub-path. The old regex only matched
+     paths that started with a slash, so it quietly checked nothing at all. */
+  const start = sw.indexOf('const SHELL');
+  const end = start === -1 ? -1 : sw.indexOf('];', start);
+  if (start === -1 || end === -1) {
+    problems.push('sw.js has no SHELL array to check');
+  } else {
+    const block = sw.slice(start, end);
+    const shell = [...block.matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
+    const unique = [...new Set(shell)];
+    for (const entry of unique) {
+      const clean = entry.replace(/^(\.\/|\/)+/, '');
+      const target = clean === '' ? join(ROOT, 'index.html') : join(ROOT, clean);
+      if (!existsSync(target)) problems.push(`service worker precaches a missing file: ${entry}`);
+    }
+    if (unique.length === 0) problems.push('the service worker shell is empty');
+    notes.push(`${unique.length} precached shell entries`);
   }
-  notes.push(`${unique.length} precached shell entries`);
 }
 
 /* 4. sitemap.xml and robots.txt must still describe the site. */
@@ -88,6 +101,35 @@ if (existsSync(sitemapPath)) {
   const locs = [...sitemap.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1]);
   if (locs.length === 0) problems.push('sitemap.xml lists no URLs');
   notes.push(`${locs.length} URLs in sitemap.xml`);
+
+  /* Indexing hygiene: the canonical, the one sitemap URL and the robots.txt
+     Sitemap line all have to name the same address. When they drift, Google
+     keeps the old one in its index and a stale link keeps showing up. */
+  const canonical = (html.match(/<link\s+rel=["']canonical["']\s+href=["']([^"']+)["']/i) || [])[1];
+  if (!canonical) problems.push('index.html has no canonical link');
+  else {
+    if (locs.length && !locs.includes(canonical)) {
+      problems.push(`canonical ${canonical} is not the URL in sitemap.xml`);
+    }
+    const robotsPath = join(ROOT, 'robots.txt');
+    if (existsSync(robotsPath)) {
+      const robots = readFileSync(robotsPath, 'utf8');
+      const declared = (robots.match(/^Sitemap:\s*(\S+)/im) || [])[1];
+      const expected = new URL('sitemap.xml', canonical).href;
+      if (!declared) problems.push('robots.txt declares no Sitemap');
+      else if (declared !== expected) problems.push(`robots.txt Sitemap ${declared} does not match ${expected}`);
+    }
+  }
+
+  /* Anything that is not the canonical page must say so. GitHub Pages answers
+     every other path with 404.html; if that page is indexable, Google keeps
+     old addresses alive. */
+  const notFoundPath = join(ROOT, '404.html');
+  if (!existsSync(notFoundPath)) {
+    problems.push('404.html is missing: GitHub Pages would serve its own indexable 404');
+  } else if (!/<meta\s+name=["']robots["'][^>]*noindex/i.test(readFileSync(notFoundPath, 'utf8'))) {
+    problems.push('404.html is not marked noindex');
+  }
 }
 
 /* 5. Fonts: the editor promises a self-hosted set, so an empty file is a bug. */

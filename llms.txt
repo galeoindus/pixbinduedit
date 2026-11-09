@@ -50,5 +50,7 @@ any static host.
 - `sitemap.xml` lists that one page, at its canonical address
   `https://galeoindus.github.io/pixelstudioedit/`.
 - `robots.txt` allows every crawler.
+- Every other address on the host answers with `404.html`, which is marked
+  `noindex, nofollow`; there are no second pages to index.
 - The page's structured data is a `WebApplication` entry describing the editor,
   its price (free), its licence and its features.

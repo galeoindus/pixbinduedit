@@ -33,6 +33,10 @@ jobs:
             test -s "$f" || { echo "missing $f"; exit 1; }
           done
           grep -q "nirbhar-worker.js" sw.js || { echo "worker not in the offline shell"; exit 1; }
+      - name: Run the repository audit
+        # The same script the weekly health run uses, so drift in the sitemap,
+        # the canonical or 404.html fails the push that caused it.
+        run: node scripts/weekly-audit.mjs
       - name: Check the self-hosted fonts are present
         run: |
           test -f fonts/fonts.css

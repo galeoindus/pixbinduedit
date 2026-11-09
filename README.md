@@ -192,6 +192,9 @@ tests/core.test.js  unit tests for js/core.js
 tests/nirbhar.test.js  unit tests for js/nirbhar.js
 tests/ui.js         headless browser test: boots the app and drives every control
 manifest.json       PWA manifest (installable app)
+404.html            what GitHub Pages serves for a missing path — noindex, never crawled into the index
+robots.txt          allows every crawler and names the sitemap
+sitemap.xml         the one canonical URL of the site
 sw.js               service worker caching the app shell for offline use
 js/effects-worker.js  web worker that runs filters, palette and dithering off the main thread
 icons/              app icons (192 and 512 px)
@@ -212,6 +215,24 @@ The UI test drives a real Chromium through puppeteer and checks that every tool,
 npm i puppeteer-core          # or use an existing install
 CHROME_PATH=/usr/bin/chromium node tests/ui.js
 ```
+
+## Search indexing
+
+The editor is one page at one address, and the repository keeps it that way:
+
+- `index.html` carries the canonical URL, `index, follow` robots hints and the
+  `WebApplication` structured data.
+- `sitemap.xml` lists that single canonical URL; `robots.txt` names the same
+  sitemap file.
+- `404.html` answers every other path with `noindex, nofollow`. GitHub Pages
+  uses it automatically for a missing path, so an old or mistyped address never
+  turns into a second indexed page or a stray sitelink.
+- `scripts/weekly-audit.mjs` fails if the canonical, the sitemap and the
+  `robots.txt` line stop agreeing, or if `404.html` loses its `noindex`.
+
+If a URL that should not exist still shows in Google Search Console, the fix is
+on Google's side, not in this repository: it has to be re-crawled so the noindex
+is seen, or removed with Search Console → Removals → New request.
 
 ## Contributing
 
