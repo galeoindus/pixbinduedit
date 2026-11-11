@@ -41,6 +41,7 @@ The modes follow the job you picked on the start screen: *Create a design* and *
 
 **Handles and rotation**
 - Select any object and it shows corner handles to resize and a round handle above it to rotate — shapes change size, text scales its font size
+- Flip horizontally/vertically, centre objects on the artboard and nudge with arrow keys (Shift + arrow = 10 px)
 
 **Installable, offline-capable**
 - Ships a web app manifest and a service worker, so the editor can be installed to the home screen and opens without a network connection (after the first visit)
@@ -54,6 +55,7 @@ The modes follow the job you picked on the start screen: *Create a design* and *
 - Objects are saved in the project file, so a reopened project keeps its text editable
 
 **Text**
+- Tracking (letter spacing), line-height and left/centre/right alignment controls, with editable text retained in project files
 - **Tap the canvas with the Text tool and a floating text box opens right there** — type, press Enter, done
 - **Use your own font**: drop in any `.ttf`, `.otf`, `.woff` or `.woff2` file and it appears in the font list
 - Multiple lines, **16 fonts shown in their own typeface** (open-licence web fonts: Press Start 2P, Bungee, Lobster, Pacifico, Anton, Righteous, Monoton, Orbitron, Bebas Neue, Caveat, Fredoka, Cinzel plus system classics)
@@ -82,6 +84,8 @@ The modes follow the job you picked on the start screen: *Create a design* and *
 
 **Layers, groups and masks**
 - Unlimited layers: visibility, lock, rename, reorder, duplicate, delete, merge down, clear
+- Layer blend modes: Normal, Multiply, Screen, Overlay, Darken, Lighten and Difference; blend mode and masks remain in saved projects
+- Apply blur, outline and shadow directly to the active layer from the Layers panel
 - **Groups**: put a layer in a group, collapse it, hide the whole group, or ungroup again
 - **Masks**: build a mask from the current selection, switch it on and off, or remove it — the mask hides pixels without destroying them
 - Per-layer opacity and live thumbnails
@@ -101,10 +105,12 @@ The modes follow the job you picked on the start screen: *Create a design* and *
 - Turn, tilt (perspective projection) and extrude the active layer
 
 **Files**
+- Export a hybrid **editable SVG**: text and basic shapes stay vector objects; pixel layers and complex text effects are embedded as raster images
 - Export **PNG, JPEG or WebP** at 1×–20× with nearest-neighbour upscaling and a quality slider
 - Save/open projects as `.json` (layers preserved)
 - **Import a photo at its native size** — "Edit a photo" resizes the document to the image first and draws it 1:1, so photos stay sharp instead of being downsampled and blown back up
-- Autosave to local storage, restorable at any time
+- Autosave to local storage, restorable at any time; when local storage is full, the latest recovery project falls back to IndexedDB
+- Optional pen-pressure brush sizing and coalesced stylus samples; touch, mouse and pen continue to use the same drawing tools
 
 ## Nirbhar — the offline toolkit
 
