@@ -11,6 +11,12 @@
 
   var MAX_BACKING = 12e6;
   var AUTOSAVE_KEY = 'pixelstudioedit.autosave.v3';
+  var RECOVERY_DB = 'pixelstudioedit-recovery';
+  var BLEND_MODES = {
+    normal: 'source-over', multiply: 'multiply', screen: 'screen',
+    overlay: 'overlay', darken: 'darken', lighten: 'lighten', difference: 'difference'
+  };
+  function safeBlendMode(mode) { return Object.prototype.hasOwnProperty.call(BLEND_MODES, mode) ? mode : 'normal'; }
 
   var STICKERS = [
     '★', '☆', '✦', '❤', '♥', '●', '■', '▲', '◆', '⬟',
@@ -45,7 +51,7 @@
     color: '#1b1b1f', color2: '#ffffff',
     brush: 1, opacity: 1, tolerance: 0,
     symX: false, symY: false, showGrid: false, showChecker: true, crisp: false,
-    fillShapes: false, strokeActive: false,
+    fillShapes: false, strokeActive: false, pressureEnabled: false,
     sel: null, floating: null, preview: null, drag: null, panning: null,
     history: [], hpos: -1,
     objects: [], selectedObj: null, objSeq: 1,
@@ -58,6 +64,7 @@
       stroke: 0, strokeColor: '#000000',
       shadow: 0, shadowColor: '#000000',
       curve: 0, depth: 0, depthColor: '#2b2b3a',
+      letterSpacing: 0, lineHeight: 1.25, align: 'left',
       reflection: false, emboss: false
     },
     sticker: '★',
@@ -138,7 +145,7 @@
     cv.width = S.w;
     cv.height = S.h;
     return {
-      name: name, visible: true, opacity: 1, locked: false,
+      name: name, visible: true, opacity: 1, locked: false, blendMode: 'normal',
       groupId: null, mask: null,
       canvas: cv, ctx: cv.getContext('2d', { willReadFrequently: true })
     };
@@ -268,7 +275,7 @@
         });
         return {
           name: l.name, visible: l.visible, opacity: l.opacity, locked: l.locked,
-          groupId: l.groupId,
+          blendMode: safeBlendMode(l.blendMode), groupId: l.groupId,
           mask: l.mask ? {
             enabled: l.mask.enabled,
             data: l.mask.canvas.getContext('2d').getImageData(0, 0, S.w, S.h)
@@ -284,6 +291,7 @@
     S.layers = snap.layers.map(function (o) {
       var l = mkLayer(o.name);
       l.visible = o.visible; l.opacity = o.opacity; l.locked = o.locked;
+      l.blendMode = safeBlendMode(o.blendMode);
       /* copy so later painting never mutates a buffer the history still holds */
       l.ctx.putImageData(new ImageData(new Uint8ClampedArray(o.data.data), o.data.width, o.data.height), 0, 0);
       return l;
@@ -353,10 +361,13 @@
   /* --------------------------------------------------------------- rendering */
 
   function effZoom() {
-    /* the cap must account for the device-pixel-ratio backing store, otherwise a
-       retina screen can allocate a canvas far past the memory budget */
-    var dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
-    var max = Math.sqrt(MAX_BACKING / Math.max(1, S.w * S.h)) / dpr;
+    /* Coarse-pointer devices get a lower backing-store budget: the editor still
+       renders at native document resolution, but avoids tripling large canvases
+       into a memory spike on phones and tablets. */
+    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var budget = coarse ? 8e6 : MAX_BACKING;
+    var dpr = Math.min(coarse ? 2 : 3, Math.max(1, window.devicePixelRatio || 1));
+    var max = Math.sqrt(budget / Math.max(1, S.w * S.h)) / dpr;
     /* fractional scales are allowed so a large artboard can always fit the screen */
     return Math.max(0.05, Math.min(S.zoom, Math.max(0.05, max)));
   }
@@ -368,6 +379,7 @@
       var l = S.layers[i];
       if (!layerVisible(l) || l.opacity <= 0) continue;
       compCtx.globalAlpha = l.opacity;
+      compCtx.globalCompositeOperation = BLEND_MODES[safeBlendMode(l.blendMode)];
       if (l.mask && l.mask.enabled) {
         if (maskTmp.width !== S.w || maskTmp.height !== S.h) { maskTmp.width = S.w; maskTmp.height = S.h; }
         var mt = maskTmp.getContext('2d');
@@ -383,6 +395,7 @@
       }
     }
     compCtx.globalAlpha = 1;
+    compCtx.globalCompositeOperation = 'source-over';
     for (var j = 0; j < S.objects.length; j++) {
       var o = S.objects[j];
       if (!o.visible) continue;
@@ -443,7 +456,8 @@
     var W = Math.max(1, Math.round(S.w * z)), H = Math.max(1, Math.round(S.h * z));
     /* Device pixel ratio: the backing store is denser than the CSS box, so text and
        edges stay sharp on retina screens without changing document coordinates. */
-    var dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var dpr = Math.min(coarse ? 2 : 3, Math.max(1, window.devicePixelRatio || 1));
     var bw = Math.round(W * dpr), bh = Math.round(H * dpr);
 
     [screen, bgCanvas, overlayCanvas].forEach(function (cv) {
@@ -724,6 +738,7 @@
           S.active = i;
           byId('layer-opacity').value = Math.round(l.opacity * 100);
           byId('layer-opacity-val').textContent = Math.round(l.opacity * 100);
+          if (byId('layer-blend')) byId('layer-blend').value = safeBlendMode(l.blendMode);
           renderLayers(); updateStatus();
         };
         box.appendChild(el);
@@ -733,6 +748,7 @@
     if (cur) {
       byId('layer-opacity').value = Math.round(cur.opacity * 100);
       byId('layer-opacity-val').textContent = Math.round(cur.opacity * 100);
+      if (byId('layer-blend')) byId('layer-blend').value = safeBlendMode(cur.blendMode);
     }
   }
 
@@ -820,9 +836,9 @@
     return { x: x, y: y, inside: x >= 0 && y >= 0 && x < S.w && y < S.h };
   }
 
-  function stampAt(layer, x, y, colorHex, erase) {
+  function stampAt(layer, x, y, colorHex, erase, pressureSize) {
     var ctx = layer.ctx;
-    var size = Math.max(1, S.brush);
+    var size = Math.max(1, Math.round(pressureSize || S.brush));
     var half = Math.floor(size / 2);
     ctx.save();
     if (erase) ctx.globalCompositeOperation = 'destination-out';
@@ -838,12 +854,12 @@
     ctx.restore();
   }
 
-  function strokeTo(layer, x0, y0, x1, y1, color, erase) {
+  function strokeTo(layer, x0, y0, x1, y1, color, erase, pressureSize) {
     var dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     var dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     var err = dx + dy, guard = 0;
     while (guard++ < 20000) {
-      stampAt(layer, x0, y0, color, erase);
+      stampAt(layer, x0, y0, color, erase, pressureSize);
       if (x0 === x1 && y0 === y1) break;
       var e2 = 2 * err;
       if (e2 >= dy) { err += dy; x0 += sx; }
@@ -878,13 +894,13 @@
 
   /* Anti-aliased segment with round caps, mirrored on request. This is what keeps
      freehand lines smooth instead of stepping through document pixels. */
-  function paintSegment(target, a, b, colorHex, erase) {
+  function paintSegment(target, a, b, colorHex, erase, pressureSize) {
     target.save();
     target.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
     target.globalAlpha = 1;
     target.strokeStyle = colorHex;
     target.fillStyle = colorHex;
-    target.lineWidth = Math.max(1, S.brush);
+    target.lineWidth = Math.max(0.5, pressureSize || S.brush);
     target.lineCap = 'round';
     target.lineJoin = 'round';
     var combos = [[1, 1]];
@@ -925,6 +941,17 @@
 
   /* ---------------------------------------------------------- pointer events */
 
+  /* Pressure is opt-in and applies only to a real pen pointer. A mouse keeps
+     the chosen brush size, while hardware without pressure data gets a neutral
+     mid-pressure value instead of a zero-width stroke. */
+  function brushForPointer(e) {
+    if (!S.pressureEnabled || !e || e.pointerType !== 'pen') return S.brush;
+    var pressure = Number(e.pressure);
+    if (!isFinite(pressure) || pressure <= 0) pressure = 0.5;
+    pressure = Math.max(0, Math.min(1, pressure));
+    return Math.max(0.5, S.brush * (0.5 + pressure * 0.75));
+  }
+
   function onDown(e) {
     if (e.button === 1 || S.spaceDown || S.tool === 'hand') {
       S.panning = { x: e.clientX, y: e.clientY };
@@ -941,14 +968,15 @@
       if (!guardLayer()) return;
       var erase = S.tool === 'eraser';
       var fp = pointFromEvent(e);
-      S.drag = { type: 'draw', last: p, lastPt: fp, color: color, erase: erase };
+      var brushAtDown = brushForPointer(e);
+      S.drag = { type: 'draw', last: p, lastPt: fp, lastBrush: brushAtDown, color: color, erase: erase, pointerId: e.pointerId };
       if (S.crisp) {
-        stampAt(l, p.x, p.y, color, erase);
+        stampAt(l, p.x, p.y, color, erase, brushAtDown);
       } else if (erase) {
-        paintSegment(l.ctx, fp, fp, color, true);
+        paintSegment(l.ctx, fp, fp, color, true, brushAtDown);
       } else {
         beginStrokeBuffer();
-        paintSegment(strokeCtx, fp, fp, color, false);
+        paintSegment(strokeCtx, fp, fp, color, false, brushAtDown);
       }
       render();
       if (screen.setPointerCapture) { try { screen.setPointerCapture(e.pointerId); } catch (err) {} }
@@ -1067,16 +1095,19 @@
       var l = activeLayer();
       if (!l) return;
       var fp = pointFromEvent(e);
+      var pressureBrush = brushForPointer(e);
+      var segmentBrush = (S.drag.lastBrush + pressureBrush) / 2;
       if (S.crisp) {
-        if (!p.inside) { S.drag.last = p; return; }
-        strokeTo(l, S.drag.last.x, S.drag.last.y, p.x, p.y, S.drag.color, S.drag.erase);
+        if (!p.inside) { S.drag.last = p; S.drag.lastBrush = pressureBrush; return; }
+        strokeTo(l, S.drag.last.x, S.drag.last.y, p.x, p.y, S.drag.color, S.drag.erase, pressureBrush);
         S.drag.last = p;
       } else {
         var from = S.drag.lastPt || fp;
-        paintSegment(S.drag.erase ? l.ctx : strokeCtx, from, fp, S.drag.color, S.drag.erase);
+        paintSegment(S.drag.erase ? l.ctx : strokeCtx, from, fp, S.drag.color, S.drag.erase, segmentBrush);
         S.drag.lastPt = fp;
         S.drag.last = p;
       }
+      S.drag.lastBrush = pressureBrush;
       render();
     } else if (S.drag.type === 'shape') {
       S.preview.x1 = p.x; S.preview.y1 = p.y;
@@ -1484,22 +1515,28 @@
   }
 
   /* Draws one line, optionally curved, into ctx. */
-  function drawTextLine(ctx, line, x, y, size, curve, strokeWidth) {
-    if (!curve) {
-      ctx.fillText(line, x, y);
-      if (strokeWidth > 0) ctx.strokeText(line, x, y);
+  function drawTextLine(ctx, line, x, y, size, curve, strokeWidth, letterSpacing, blockWidth, align) {
+    var chars = Array.from(line);
+    if (!chars.length) return;
+    var spacing = Number(letterSpacing) || 0;
+    var widths = chars.map(function (ch) { return ctx.measureText(ch).width; });
+    var total = widths.reduce(function (a, b) { return a + b; }, 0) + spacing * Math.max(0, chars.length - 1);
+    var area = Math.max(0, Number(blockWidth) || total);
+    var startX = x;
+    if (align === 'center') startX += (area - total) / 2;
+    else if (align === 'right') startX += area - total;
+    if (!curve && spacing === 0) {
+      ctx.fillText(line, startX, y);
+      if (strokeWidth > 0) ctx.strokeText(line, startX, y);
       return;
     }
-    var chars = Array.from(line);
-    var widths = chars.map(function (ch) { return ctx.measureText(ch).width; });
-    var total = widths.reduce(function (a, b) { return a + b; }, 0);
     var acc = 0;
     for (var i = 0; i < chars.length; i++) {
       var t = chars.length === 1 ? 0 : (acc / Math.max(1, total)) * 2 - 1;
       var dy = (curve / 100) * size * 1.4 * (t * t - 1);
-      ctx.fillText(chars[i], x + acc, y + dy);
-      if (strokeWidth > 0) ctx.strokeText(chars[i], x + acc, y + dy);
-      acc += widths[i];
+      ctx.fillText(chars[i], startX + acc, y + dy);
+      if (strokeWidth > 0) ctx.strokeText(chars[i], startX + acc, y + dy);
+      acc += widths[i] + spacing;
     }
   }
 
@@ -1523,6 +1560,9 @@
       curve: S.text.curve,
       depth: S.text.depth,
       depthColor: S.text.depthColor,
+      letterSpacing: +byId('text-letter-spacing').value || 0,
+      lineHeight: (+byId('text-line-height').value || 125) / 100,
+      align: byId('text-align').value || 'left',
       angle: +byId('td-angle').value,
       reflection: S.text.reflection,
       emboss: S.text.emboss,
@@ -1535,13 +1575,13 @@
     if (!o || !o.text || !o.text.trim()) return null;
     var key = JSON.stringify([o.text, o.font, o.size, o.bold, o.italic, o.gradient, o.grad2,
       o.stroke, o.strokeColor, o.shadow, o.shadowColor, o.curve, o.depth, o.depthColor,
-      o.angle, o.reflection, o.emboss, o.color, o.x, o.y, S.w, S.h]);
+      o.letterSpacing, o.lineHeight, o.align, o.angle, o.reflection, o.emboss, o.color, o.x, o.y, S.w, S.h]);
     if (o._cache && o._cache.key === key) return o._cache.canvas;
 
     var size = Math.max(4, o.size);
     var fontStr = (o.bold ? 'bold ' : '') + (o.italic ? 'italic ' : '') + size + 'px ' + o.font;
     var lines = o.text.split('\n');
-    var lineH = Math.round(size * 1.25);
+    var lineH = Math.round(size * (o.lineHeight || 1.25));
 
     var mask = offscreen(S.w, S.h);
     var mc = mask.getContext('2d');
@@ -1551,9 +1591,14 @@
     if (o.stroke > 0) { mc.strokeStyle = '#ffffff'; mc.lineWidth = o.stroke; mc.lineJoin = 'round'; }
 
     var maxW = 0;
+    var spacing = Number(o.letterSpacing) || 0;
     for (var i = 0; i < lines.length; i++) {
-      maxW = Math.max(maxW, mc.measureText(lines[i]).width);
-      drawTextLine(mc, lines[i], o.x, o.y + i * lineH, size, o.curve, o.stroke);
+      var chars = Array.from(lines[i]);
+      var lineWidth = mc.measureText(lines[i]).width + spacing * Math.max(0, chars.length - 1);
+      maxW = Math.max(maxW, lineWidth);
+    }
+    for (var li = 0; li < lines.length; li++) {
+      drawTextLine(mc, lines[li], o.x, o.y + li * lineH, size, o.curve, o.stroke, spacing, maxW, o.align);
     }
     o._bounds = { x: o.x, y: o.y, w: Math.max(6, maxW + o.stroke * 2), h: Math.max(6, lines.length * lineH + o.stroke * 2) };
 
@@ -1614,7 +1659,7 @@
     c.fillStyle = fill;
     if (o.stroke > 0) { c.strokeStyle = o.strokeColor; c.lineWidth = o.stroke; }
     for (var j = 0; j < lines.length; j++) {
-      drawTextLine(c, lines[j], o.x, o.y + j * lineH, size, o.curve, o.stroke);
+      drawTextLine(c, lines[j], o.x, o.y + j * lineH, size, o.curve, o.stroke, spacing, maxW, o.align);
     }
     c.restore();
 
@@ -1661,9 +1706,16 @@
 
   function objectCanvas(o) {
     var cv = o.type === 'text' ? textObjectCanvas(o) : shapeObjectCanvas(o);
-    if (cv && o.rotation) {
+    if (cv && (o.rotation || o.flipX || o.flipY)) {
       var b = o._bounds || { x: o.x, y: o.y, w: 1, h: 1 };
-      cv = rotateAbout(cv, o.rotation, b.x + b.w / 2, b.y + b.h / 2);
+      var cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      var out = offscreen(S.w, S.h), ctx = out.getContext('2d');
+      ctx.translate(cx, cy);
+      if (o.rotation) ctx.rotate(o.rotation * Math.PI / 180);
+      ctx.scale(o.flipX ? -1 : 1, o.flipY ? -1 : 1);
+      ctx.translate(-cx, -cy);
+      ctx.drawImage(cv, 0, 0);
+      cv = out;
     }
     return cv;
   }
@@ -1714,6 +1766,19 @@
     S.selectedObj = o.id;
     pushHistory(); render(); renderObjects();
     toast(shape + ' added');
+  }
+
+  function transformSelectedObject(action) {
+    var o = selectedObject();
+    if (!o) { toast('Select an object first'); return; }
+    var b = objectBounds(o);
+    if (action === 'flip-x') o.flipX = !o.flipX;
+    else if (action === 'flip-y') o.flipY = !o.flipY;
+    else if (action === 'center-x') o.x = Math.round((S.w - b.w) / 2);
+    else if (action === 'center-y') o.y = Math.round((S.h - b.h) / 2);
+    o._cache = null; o._bounds = null;
+    pushHistory(); render(); renderObjects();
+    toast(action.replace('-', ' ') + ' applied');
   }
 
   function deleteObject(id) {
@@ -1830,6 +1895,11 @@
     byId('text-depth-val').textContent = S.text.depth;
     byId('text-curve').value = S.text.curve;
     byId('text-curve-val').textContent = S.text.curve;
+    byId('text-letter-spacing').value = S.text.letterSpacing || 0;
+    byId('text-letter-spacing-val').textContent = S.text.letterSpacing || 0;
+    byId('text-line-height').value = Math.round((S.text.lineHeight || 1.25) * 100);
+    byId('text-line-height-val').textContent = Math.round((S.text.lineHeight || 1.25) * 100) + '%';
+    byId('text-align').value = S.text.align || 'left';
     byId('text-fill').classList.toggle('on', S.text.gradient);
     byId('grad-row').hidden = !S.text.gradient;
     byId('text-reflection').classList.toggle('on', S.text.reflection);
@@ -2103,7 +2173,7 @@
 
   function projectObject() {
     return {
-      app: 'pixelstudioedit', version: 4,
+      app: 'pixelstudioedit', version: 5,
       w: S.w, h: S.h,
       palette: S.palette.slice(),
       groups: JSON.parse(JSON.stringify(S.groups)),
@@ -2114,6 +2184,8 @@
       layers: S.layers.map(function (l) {
         return {
           name: l.name, visible: l.visible, opacity: l.opacity, locked: l.locked,
+          blendMode: safeBlendMode(l.blendMode), groupId: l.groupId || null,
+          mask: l.mask ? { enabled: !!l.mask.enabled, data: l.mask.canvas.toDataURL('image/png') } : null,
           data: l.canvas.toDataURL('image/png')
         };
       })
@@ -2128,28 +2200,75 @@
       l.visible = o.visible !== false;
       l.opacity = typeof o.opacity === 'number' ? o.opacity : 1;
       l.locked = !!o.locked;
+      l.blendMode = safeBlendMode(o.blendMode);
+      l.groupId = o.groupId || null;
       return l;
     });
+    S.groups = Array.isArray(obj.groups) ? JSON.parse(JSON.stringify(obj.groups)) : [];
+    S.groupSeq = S.groups.reduce(function (n, g) { var id = /^g(\d+)$/.exec(g.id || ''); return id ? Math.max(n, +id[1] + 1) : n; }, 1);
     S.active = 0;
     S.objects = (obj.objects || []).map(function (o) { return Object.assign({}, o); });
     S.selectedObj = null;
     if (Array.isArray(obj.palette) && obj.palette.length) { S.palette = obj.palette.slice(); renderPalette(); }
     renderObjects();
     var pending = S.layers.length;
+    function finishLoadedLayer() {
+      if (--pending <= 0) {
+        S.history = []; S.hpos = -1;
+        fitZoom(); render(); renderLayers(); updateStatus(); pushHistory();
+        toast('Project loaded');
+      }
+    }
     S.layers.forEach(function (l, i) {
+      var source = obj.layers[i] || {};
       var im = new Image();
       im.onload = function () {
         l.ctx.imageSmoothingEnabled = false;
         l.ctx.clearRect(0, 0, S.w, S.h);
         l.ctx.drawImage(im, 0, 0, S.w, S.h);
-        if (--pending <= 0) {
-          S.history = []; S.hpos = -1;
-          fitZoom(); render(); renderLayers(); updateStatus(); pushHistory();
-          toast('Project loaded');
-        }
+        if (source.mask && source.mask.data) {
+          var maskImage = new Image();
+          maskImage.onload = function () {
+            var maskCanvas = document.createElement('canvas');
+            maskCanvas.width = S.w; maskCanvas.height = S.h;
+            maskCanvas.getContext('2d').drawImage(maskImage, 0, 0, S.w, S.h);
+            l.mask = { canvas: maskCanvas, enabled: source.mask.enabled !== false };
+            finishLoadedLayer();
+          };
+          maskImage.onerror = finishLoadedLayer;
+          maskImage.src = source.mask.data;
+        } else finishLoadedLayer();
       };
-      im.onerror = function () { if (--pending <= 0) { render(); renderLayers(); } };
-      im.src = obj.layers[i].data;
+      im.onerror = finishLoadedLayer;
+      im.src = source.data || '';
+    });
+  }
+
+  function openRecoveryDb(done) {
+    if (!window.indexedDB) { done(null); return; }
+    var request;
+    try { request = window.indexedDB.open(RECOVERY_DB, 1); }
+    catch (err) { done(null); return; }
+    request.onupgradeneeded = function () {
+      var db = request.result;
+      if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects');
+    };
+    request.onsuccess = function () { done(request.result); };
+    request.onerror = function () { done(null); };
+  }
+
+  function readAutosave(done) {
+    var local = null;
+    try { local = localStorage.getItem(AUTOSAVE_KEY); } catch (err) {}
+    if (local) { done(local); return; }
+    openRecoveryDb(function (db) {
+      if (!db) { done(null); return; }
+      try {
+        var tx = db.transaction('projects', 'readonly');
+        var req = tx.objectStore('projects').get('latest');
+        req.onsuccess = function () { db.close(); done(req.result || null); };
+        req.onerror = function () { db.close(); done(null); };
+      } catch (err) { db.close(); done(null); }
     });
   }
 
@@ -2157,10 +2276,26 @@
     if (!S.ready) return;
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(function () {
+      var raw;
+      try { raw = JSON.stringify(projectObject()); } catch (err) { setSaveStatus('Recovery failed'); return; }
       try {
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(projectObject()));
+        localStorage.setItem(AUTOSAVE_KEY, raw);
         setSaveStatus('Autosaved');
-      } catch (err) { /* storage full — nothing to do */ }
+      } catch (err) {
+        /* localStorage can be exhausted by large canvases. Keep a second,
+           structured-clone-capable recovery copy in IndexedDB when available. */
+        try { localStorage.removeItem(AUTOSAVE_KEY); } catch (removeError) {}
+        openRecoveryDb(function (db) {
+          if (!db) { setSaveStatus('Save storage full'); return; }
+          try {
+            var tx = db.transaction('projects', 'readwrite');
+            tx.objectStore('projects').put(raw, 'latest');
+            tx.oncomplete = function () { db.close(); setSaveStatus('Autosaved'); };
+            tx.onerror = function () { db.close(); setSaveStatus('Recovery failed'); };
+            tx.onabort = function () { db.close(); setSaveStatus('Recovery failed'); };
+          } catch (writeError) { db.close(); setSaveStatus('Recovery failed'); }
+        });
+      }
     }, 900);
   }
 
@@ -2345,7 +2480,17 @@
          Commit/close the active gesture just as on pointerup. */
       onUp();
     });
-    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointermove', function (e) {
+      /* Pen hardware can dispatch a frame containing several coalesced samples.
+         Consume the samples in order and render once per browser dispatch so
+         fast strokes stay smooth without unnecessary full-canvas redraws. */
+      var samples = [];
+      if (typeof e.getCoalescedEvents === 'function') {
+        try { samples = e.getCoalescedEvents() || []; } catch (err) { samples = []; }
+      }
+      if (!samples.length) samples = [e];
+      for (var i = 0; i < samples.length; i++) onMove(samples[i]);
+    });
     window.addEventListener('pointerup', onUp);
     screen.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
@@ -2390,6 +2535,7 @@
     });
     on('m-import', 'click', function () { byId('menu-pop').hidden = true; byId('file-import').click(); });
     on('m-export', 'click', function () { byId('menu-pop').hidden = true; exportDialog(); });
+    on('m-export-svg', 'click', function () { byId('menu-pop').hidden = true; exportSvg(); });
     on('m-templates', 'click', function () { byId('menu-pop').hidden = true; templatesDialog(); });
     on('m-canvas', 'click', function () { byId('menu-pop').hidden = true; canvasDialog(); });
     on('m-nirbhar', 'click', function () {
@@ -2398,9 +2544,10 @@
     });
     on('m-restore', 'click', function () {
       byId('menu-pop').hidden = true;
-      var raw = localStorage.getItem(AUTOSAVE_KEY);
-      if (!raw) { toast('No autosave found'); return; }
-      try { loadProject(JSON.parse(raw)); } catch (err) { toast('Autosave is unreadable'); }
+      readAutosave(function (raw) {
+        if (!raw) { toast('No autosave found'); return; }
+        try { loadProject(JSON.parse(raw)); } catch (err) { toast('Autosave is unreadable'); }
+      });
     });
     on('m-help', 'click', function () {
       byId('menu-pop').hidden = true;
@@ -2430,6 +2577,12 @@
     on('q-opacity', 'input', function () {
       S.opacity = +this.value / 100;
       byId('q-opacity-val').textContent = this.value;
+    });
+    on('q-pressure', 'click', function () {
+      S.pressureEnabled = !S.pressureEnabled;
+      this.classList.toggle('on', S.pressureEnabled);
+      this.setAttribute('aria-pressed', S.pressureEnabled ? 'true' : 'false');
+      toast(S.pressureEnabled ? 'Pen pressure enabled' : 'Pen pressure disabled');
     });
     on('q-mirror-x', 'click', function () { S.symX = !S.symX; this.classList.toggle('on', S.symX); });
     on('q-mirror-y', 'click', function () { S.symY = !S.symY; this.classList.toggle('on', S.symY); });
@@ -2486,6 +2639,9 @@
       if (!S.selectedObj) { toast('Select an object first'); return; }
       deleteObject(S.selectedObj);
     });
+    $('[data-object-transform]').forEach(function (b) {
+      b.onclick = function () { transformSelectedObject(b.dataset.objectTransform); };
+    });
 
     // layers
     on('layer-add', 'click', addLayer);
@@ -2503,6 +2659,13 @@
       render();
     });
     on('layer-opacity', 'change', function () { pushHistory(); renderLayers(); });
+    on('layer-blend', 'change', function () {
+      var l = activeLayer();
+      if (!l) return;
+      l.blendMode = safeBlendMode(this.value);
+      pushHistory(); render(); renderLayers();
+      toast('Layer blend: ' + this.options[this.selectedIndex].text);
+    });
 
     // text styling
     on('text-bold', 'click', function () { S.text.bold = !S.text.bold; this.classList.toggle('on', S.text.bold); });
@@ -2516,7 +2679,7 @@
     on('text-emboss', 'click', function () { S.text.emboss = !S.text.emboss; this.classList.toggle('on', S.text.emboss); });
     on('text-add', 'click', addText);
     ['text-size', 'text-stroke', 'text-shadow', 'text-curve', 'text-depth', 'text-stroke-color',
-     'text-shadow-color', 'text-depth-color', 'text-grad2'].forEach(function (id) {
+     'text-shadow-color', 'text-depth-color', 'text-grad2', 'text-letter-spacing', 'text-line-height'].forEach(function (id) {
       var el = byId(id);
       if (!el) return;
       el.addEventListener('change', function () { if (updateSelectedText()) pushHistory(); });
@@ -2527,7 +2690,8 @@
     renderStyleThumbs();
 
     [['text-size', 'text-size-val'], ['text-stroke', 'text-stroke-val'], ['text-shadow', 'text-shadow-val'],
-     ['text-curve', 'text-curve-val'], ['text-depth', 'text-depth-val'], ['sticker-size', 'sticker-size-val'],
+     ['text-curve', 'text-curve-val'], ['text-depth', 'text-depth-val'], ['text-letter-spacing', 'text-letter-spacing-val'],
+     ['text-line-height', 'text-line-height-val'], ['sticker-size', 'sticker-size-val'],
      ['fx-levels', 'fx-levels-val'], ['fx-blur', 'fx-blur-val'], ['fx-noise', 'fx-noise-val'],
      ['outline-width', 'outline-width-val'], ['shadow-dx', 'shadow-dx-val'], ['shadow-dy', 'shadow-dy-val'],
      ['bg-tolerance', 'bg-tolerance-val'], ['td-depth', 'td-depth-val'], ['td-angle', 'td-angle-val'],
@@ -2541,6 +2705,9 @@
     on('text-shadow', 'input', function () { S.text.shadow = +this.value; });
     on('text-curve', 'input', function () { S.text.curve = +this.value; });
     on('text-depth', 'input', function () { S.text.depth = +this.value; });
+    on('text-letter-spacing', 'input', function () { S.text.letterSpacing = +this.value; });
+    on('text-line-height', 'input', function () { S.text.lineHeight = (+this.value || 125) / 100; byId('text-line-height-val').textContent = this.value + '%'; });
+    on('text-align', 'change', function () { S.text.align = this.value; if (updateSelectedText()) pushHistory(); });
     on('text-stroke-color', 'input', function () { S.text.strokeColor = this.value; });
     on('text-shadow-color', 'input', function () { S.text.shadowColor = this.value; });
     on('text-depth-color', 'input', function () { S.text.depthColor = this.value; });
@@ -2579,9 +2746,10 @@
     on('start-open', 'click', function () { hideStart(); byId('file-open').click(); });
     on('start-skip', 'click', function () {
       hideStart();
-      var raw = localStorage.getItem(AUTOSAVE_KEY);
-      if (!raw) { toast('No previous project yet — start with Create a design'); return; }
-      try { loadProject(JSON.parse(raw)); } catch (err) { toast('Autosave is unreadable'); }
+      readAutosave(function (raw) {
+        if (!raw) { toast('No previous project yet — start with Create a design'); return; }
+        try { loadProject(JSON.parse(raw)); } catch (err) { toast('Autosave is unreadable'); }
+      });
     });
 
     // inline text editor
@@ -2674,7 +2842,18 @@
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', function (e) { if (e.code === 'Space') S.spaceDown = false; });
-    window.addEventListener('resize', function () { fitZoom(); });
+    function syncDeviceProfile() {
+      var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      var compact = window.matchMedia && window.matchMedia('(max-width: 980px)').matches;
+      document.documentElement.dataset.inputMode = coarse ? 'coarse' : 'precise';
+      document.documentElement.dataset.layoutMode = compact ? 'compact' : 'desktop';
+    }
+    syncDeviceProfile();
+    window.addEventListener('resize', function () { syncDeviceProfile(); fitZoom(); });
+    if (typeof ResizeObserver !== 'undefined') {
+      var resizeObserver = new ResizeObserver(function () { fitZoom(); });
+      resizeObserver.observe(stageWrap);
+    }
 
     /* On-screen keyboard: shrink the shell instead of letting it overflow. */
     function syncViewport() {
@@ -2927,6 +3106,107 @@
     $('#dlg-rot-ccw').onclick = function () { transformDoc('rot-ccw'); };
   }
 
+
+  function xmlEscape(value) {
+    return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  }
+
+  function svgTransform(o, bounds) {
+    if (!o.rotation && !o.flipX && !o.flipY) return '';
+    var cx = bounds.x + bounds.w / 2, cy = bounds.y + bounds.h / 2;
+    return ' transform="translate(' + cx + ' ' + cy + ') rotate(' + (o.rotation || 0) + ') scale(' +
+      (o.flipX ? -1 : 1) + ' ' + (o.flipY ? -1 : 1) + ') translate(' + (-cx) + ' ' + (-cy) + ')"';
+  }
+
+  function exportSvg() {
+    var defs = [];
+    var body = [];
+    var rasterModes = { normal: 'normal', multiply: 'multiply', screen: 'screen', overlay: 'overlay',
+      darken: 'darken', lighten: 'lighten', difference: 'difference' };
+    S.layers.forEach(function (l, i) {
+      if (!layerVisible(l) || l.opacity <= 0) return;
+      var source = l.canvas;
+      if (l.mask && l.mask.enabled) {
+        var masked = offscreen(S.w, S.h), mc = masked.getContext('2d');
+        mc.drawImage(l.canvas, 0, 0);
+        mc.globalCompositeOperation = 'destination-in';
+        mc.drawImage(l.mask.canvas, 0, 0);
+        source = masked;
+      }
+      var mode = safeBlendMode(l.blendMode);
+      body.push('<image data-layer="' + i + '" data-name="' + xmlEscape(l.name) + '" x="0" y="0" width="' +
+        S.w + '" height="' + S.h + '" opacity="' + l.opacity + '" style="mix-blend-mode:' +
+        (rasterModes[mode] || 'normal') + '" href="' + source.toDataURL('image/png') + '"/>');
+    });
+    S.objects.forEach(function (o, i) {
+      if (!o.visible) return;
+      var b = objectBounds(o);
+      var transform = svgTransform(o, b);
+      if (o.type === 'shape') {
+        var stroke = o.strokeColor || o.color || '#000000';
+        var fill = o.filled ? (o.color || '#000000') : 'none';
+        if (o.shape === 'rect') {
+          body.push('<rect data-object="' + xmlEscape(o.id || i) + '" x="' + o.x + '" y="' + o.y +
+            '" width="' + Math.max(0, o.w) + '" height="' + Math.max(0, o.h) + '" fill="' + fill +
+            '" stroke="' + stroke + '" stroke-width="' + (o.strokeWidth || 1) + '"' + transform + '/>');
+        } else if (o.shape === 'ellipse') {
+          body.push('<ellipse data-object="' + xmlEscape(o.id || i) + '" cx="' + (o.x + o.w / 2) +
+            '" cy="' + (o.y + o.h / 2) + '" rx="' + Math.abs(o.w / 2) + '" ry="' + Math.abs(o.h / 2) +
+            '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + (o.strokeWidth || 1) + '"' + transform + '/>');
+        } else if (o.shape === 'line') {
+          body.push('<line data-object="' + xmlEscape(o.id || i) + '" x1="' + o.x + '" y1="' + o.y +
+            '" x2="' + (o.x + o.w) + '" y2="' + (o.y + o.h) + '" fill="none" stroke="' + stroke +
+            '" stroke-width="' + (o.strokeWidth || 1) + '"' + transform + '/>');
+        }
+        return;
+      }
+      /* Curved, extruded and embossed text is rasterised as one image to retain
+         the exact canvas appearance; plain/stroked/gradient text stays editable. */
+      if (o.curve || o.depth || o.emboss || o.reflection) {
+        var rendered = objectCanvas(o);
+        if (rendered) body.push('<image data-object="' + xmlEscape(o.id || i) + '" x="0" y="0" width="' +
+          S.w + '" height="' + S.h + '" href="' + rendered.toDataURL('image/png') + '"/>');
+        return;
+      }
+      var fontFamily = xmlEscape(String(o.font || 'sans-serif').replace(/['"]/g, ''));
+      var align = o.align === 'center' ? 'middle' : (o.align === 'right' ? 'end' : 'start');
+      var anchorX = o.x + (o.align === 'center' ? b.w / 2 : (o.align === 'right' ? b.w : 0));
+      var fill = xmlEscape(o.color || '#000000');
+      if (o.gradient) {
+        var gradientId = 'text-gradient-' + i;
+        defs.push('<linearGradient id="' + gradientId + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' +
+          fill + '"/><stop offset="1" stop-color="' + xmlEscape(o.grad2 || fill) + '"/></linearGradient>');
+        fill = 'url(#' + gradientId + ')';
+      }
+      var lines = String(o.text || '').split('\n');
+      var lineHeight = (o.size || 12) * (o.lineHeight || 1.25);
+      var tspans = lines.map(function (line, lineIndex) {
+        return '<tspan x="' + anchorX + '" dy="' + (lineIndex === 0 ? 0 : lineHeight) + '">' + xmlEscape(line) + '</tspan>';
+      }).join('');
+      var strokeAttrs = o.stroke > 0 ? ' stroke="' + xmlEscape(o.strokeColor || '#000000') +
+        '" stroke-width="' + o.stroke + '" paint-order="stroke"' : '';
+      var shadowFilter = '';
+      if (o.shadow > 0) {
+        var filterId = 'text-shadow-' + i;
+        defs.push('<filter id="' + filterId + '" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="' +
+          o.shadow + '" dy="' + o.shadow + '" stdDeviation="' + Math.max(1, o.shadow / 2) + '" flood-color="' +
+          xmlEscape(o.shadowColor || '#000000') + '"/></filter>');
+        shadowFilter = ' filter="url(#' + filterId + ')"';
+      }
+      body.push('<text data-object="' + xmlEscape(o.id || i) + '" x="' + anchorX + '" y="' + o.y +
+        '" font-family="' + fontFamily + '" font-size="' + (o.size || 12) + '" font-weight="' +
+        (o.bold ? '700' : '400') + '" font-style="' + (o.italic ? 'italic' : 'normal') +
+        '" text-anchor="' + align + '" dominant-baseline="hanging" letter-spacing="' + (o.letterSpacing || 0) +
+        '" fill="' + fill + '"' + strokeAttrs + shadowFilter + transform + '>' + tspans + '</text>');
+    });
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' +
+      S.w + '" height="' + S.h + '" viewBox="0 0 ' + S.w + ' ' + S.h + '"><title>Pixel Studio Edit design</title><defs>' +
+      defs.join('') + '</defs>' + body.join('') + '</svg>';
+    saveBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), 'pixelstudioedit-design.svg');
+    toast('SVG exported — editable text and shapes are preserved');
+  }
+
   function exportDialog() {
     modal('Export image',
       '<div class="row"><label>Format</label><select id="dlg-format">' +
@@ -2990,6 +3270,18 @@
     if (k === '+' || k === '=') { setZoom(effZoom() + 1); return; }
     if (k === '-') { setZoom(effZoom() - 1); return; }
     if (k === '0') { fitZoom(); return; }
+    if (k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === 'arrowdown') {
+      var selected = selectedObject();
+      if (selected) {
+        e.preventDefault();
+        var step = e.shiftKey ? 10 : 1;
+        selected.x = (selected.x || 0) + (k === 'arrowleft' ? -step : (k === 'arrowright' ? step : 0));
+        selected.y = (selected.y || 0) + (k === 'arrowup' ? -step : (k === 'arrowdown' ? step : 0));
+        selected._cache = null; selected._bounds = null;
+        pushHistory(); render(); renderObjects();
+        return;
+      }
+    }
     if (k === 'escape') { S.sel = null; S.floating = null; render(); return; }
     if (k === 'delete' || k === 'backspace') { e.preventDefault(); clearSelection(); return; }
   }
