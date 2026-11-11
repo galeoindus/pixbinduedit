@@ -36,3 +36,56 @@ test('the compact inspector handle is a keyboard-accessible button', () => {
   assert.match(app, /handle\.setAttribute\('aria-expanded', 'true'\)/);
   assert.match(app, /handle\.setAttribute\('aria-expanded', 'false'\)/);
 });
+
+
+test('pen pressure uses PointerEvent pressure only when enabled for pen input', () => {
+  assert.match(app, /function brushForPointer\(e\)/);
+  assert.match(app, /e\.pointerType !== 'pen'/);
+  assert.match(app, /e\.pressure/);
+  assert.match(html, /id="q-pressure"/);
+});
+
+test('coalesced pointer samples are processed before a single redraw', () => {
+  assert.match(app, /getCoalescedEvents\(\)/);
+  assert.match(app, /for \(var i = 0; i < samples\.length; i\+\+\) onMove\(samples\[i\]\)/);
+});
+
+test('layer blend modes are validated, rendered and saved with masks', () => {
+  assert.match(app, /var BLEND_MODES = \{/);
+  assert.match(app, /globalCompositeOperation = BLEND_MODES\[safeBlendMode\(l\.blendMode\)\]/);
+  assert.match(app, /blendMode: safeBlendMode\(l\.blendMode\)/);
+  assert.match(app, /mask: l\.mask \?/);
+  assert.match(html, /id="layer-blend"/);
+});
+
+test('editable text has tracking, line-height and alignment controls', () => {
+  assert.match(html, /id="text-letter-spacing"/);
+  assert.match(html, /id="text-line-height"/);
+  assert.match(html, /id="text-align"/);
+  assert.match(app, /letterSpacing/);
+  assert.match(app, /lineHeight/);
+  assert.match(app, /drawTextLine\(ctx, line, x, y, size, curve, strokeWidth, letterSpacing, blockWidth, align\)/);
+});
+
+test('objects support flip, centring and keyboard nudging', () => {
+  assert.match(html, /data-object-transform="flip-x"/);
+  assert.match(html, /data-object-transform="flip-y"/);
+  assert.match(app, /function transformSelectedObject\(action\)/);
+  assert.match(app, /k === 'arrowleft' \|\| k === 'arrowright'/);
+});
+
+test('editable SVG export keeps ordinary text and shapes as vector elements', () => {
+  assert.match(html, /id="m-export-svg"/);
+  assert.match(app, /function exportSvg\(\)/);
+  assert.match(app, /<linearGradient/);
+  assert.match(app, /<text data-object=/);
+  assert.match(app, /<rect data-object=/);
+});
+
+test('autosave falls back to IndexedDB and device profiles cap mobile backing stores', () => {
+  assert.match(app, /function openRecoveryDb\(done\)/);
+  assert.match(app, /function readAutosave\(done\)/);
+  assert.match(app, /RECOVERY_DB/);
+  assert.match(app, /budget = coarse \? 8e6 : MAX_BACKING/);
+  assert.match(app, /new ResizeObserver/);
+});
