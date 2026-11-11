@@ -125,7 +125,8 @@
     <button class="menu-item" id="m-open">Open project…</button>
     <button class="menu-item" id="m-save">Save project</button>
     <button class="menu-item" id="m-import">Import image…</button>
-    <button class="menu-item accent" id="m-export">Export PNG…</button>
+    <button class="menu-item accent" id="m-export">Export image…</button>
+    <button class="menu-item" id="m-export-svg">Export editable SVG…</button>
     <div class="menu-sep"></div>
     <button class="menu-item" id="m-templates">Templates…</button>
     <button class="menu-item" id="m-canvas">Canvas size &amp; transform…</button>
@@ -187,6 +188,7 @@
         <button class="q-toggle" id="q-grid" title="Pixel grid">▦</button>
         <button class="q-toggle" id="q-crisp" title="Pixel-art mode: crisp pixels, nearest-neighbour zoom">▩</button>
         <button class="q-toggle on" id="q-checker" title="Transparency checkerboard">▨</button>
+        <button class="q-toggle" id="q-pressure" title="Use stylus pressure for brush size" aria-pressed="false">✎</button>
         
     <div class="spacer"></div>
         <div class="zoombox">
@@ -256,6 +258,9 @@
           <div class="row"><label>Stroke</label><input type="range" id="text-stroke" min="0" max="8" value="0"><b id="text-stroke-val">0</b><input type="color" id="text-stroke-color" value="#000000"></div>
           <div class="row"><label>Shadow</label><input type="range" id="text-shadow" min="0" max="12" value="0"><b id="text-shadow-val">0</b><input type="color" id="text-shadow-color" value="#000000"></div>
           <div class="row"><label>Curve</label><input type="range" id="text-curve" min="-100" max="100" value="0"><b id="text-curve-val">0</b></div>
+          <div class="row"><label>Tracking</label><input type="range" id="text-letter-spacing" min="-2" max="20" value="0"><b id="text-letter-spacing-val">0</b></div>
+          <div class="row"><label>Line gap</label><input type="range" id="text-line-height" min="80" max="200" value="125"><b id="text-line-height-val">125%</b></div>
+          <div class="row"><label>Align</label><select id="text-align"><option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option></select></div>
           <div class="row"><label>Depth</label><input type="range" id="text-depth" min="0" max="24" value="0"><b id="text-depth-val">0</b><input type="color" id="text-depth-color" value="#2b2b3a"></div>
           <div class="row tight">
             <button class="toggle" id="text-reflection">Reflection</button>
@@ -359,6 +364,13 @@
             <button class="btn" id="obj-flatten">Flatten</button>
             <button class="btn" id="obj-delete">Delete object</button>
           </div>
+          <div class="grid2 transform-tools">
+            <button class="btn" data-object-transform="flip-x">Flip horizontal</button>
+            <button class="btn" data-object-transform="flip-y">Flip vertical</button>
+            <button class="btn" data-object-transform="center-x">Centre horizontally</button>
+            <button class="btn" data-object-transform="center-y">Centre vertically</button>
+          </div>
+          <p class="hint">With an object selected, arrow keys nudge it by 1 px; Shift + arrow moves 10 px.</p>
           <p class="hint">Text and shapes stay editable: tap one to select, drag on the canvas to move it, then change font, colour or style in the Text tab.</p>
           <h4>Layers</h4>
           <div class="layers" id="layers"></div>
@@ -385,6 +397,9 @@
             <button class="btn" id="layer-merge">Merge</button>
           </div>
           <div class="row"><label>Opacity</label><input type="range" id="layer-opacity" min="0" max="100" value="100"><b id="layer-opacity-val">100</b></div>
+          <div class="row"><label>Blend</label><select id="layer-blend"><option value="normal">Normal</option><option value="multiply">Multiply</option><option value="screen">Screen</option><option value="overlay">Overlay</option><option value="darken">Darken</option><option value="lighten">Lighten</option><option value="difference">Difference</option></select></div>
+          <h4>Layer effects</h4>
+          <div class="grid3"><button class="btn" data-fx="blur">Blur</button><button class="btn" data-fx="outline">Outline</button><button class="btn" data-fx="shadow">Shadow</button></div>
           <button class="btn" id="layer-clear">Clear layer</button>
           <p class="hint">Tap a layer to make it active, tap the eye to hide it, tap the lock to protect it, double-tap the name to rename.</p>
         </section>
