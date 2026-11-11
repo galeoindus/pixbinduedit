@@ -39,6 +39,7 @@ jobs:
         run: |
           node --test tests/core.test.js
           node --test tests/nirbhar.test.js
+          node --test tests/responsive.test.js
 
       - name: Weekly drift audit
         run: node scripts/weekly-audit.mjs | tee -a "$GITHUB_STEP_SUMMARY"
