@@ -95,3 +95,9 @@ test('object transform toolbar binds every button without breaking editor boot',
   assert.ok(binding, 'transform toolbar binding exists');
   assert.match(binding, /^\s*\$\$\(/, 'uses querySelectorAll helper for all transform controls');
 });
+
+test('IndexedDB recovery keeps the previous local autosave until the new write commits', () => {
+  const save = app.slice(app.indexOf('function queueAutosave()'), app.indexOf('function exportImage('));
+  assert.match(save, /tx\.oncomplete = function \(\) \{[\s\S]*?localStorage\.removeItem\(AUTOSAVE_KEY\)/);
+  assert.doesNotMatch(save, /localStorage\.removeItem\(AUTOSAVE_KEY\);[\s\S]*?openRecoveryDb/);
+});
