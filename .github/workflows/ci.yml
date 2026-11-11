@@ -27,6 +27,8 @@ jobs:
         run: node --test tests/core.test.js
       - name: Run Nirbhar engine tests
         run: node --test tests/nirbhar.test.js
+      - name: Run responsive interaction regression tests
+        run: node --test tests/responsive.test.js
       - name: Check the worker and the toolkit ship together
         run: |
           for f in js/nirbhar.js js/nirbhar-ui.js js/nirbhar-worker.js js/nirbhar-i18n.js; do
