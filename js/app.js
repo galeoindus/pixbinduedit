@@ -2282,15 +2282,20 @@
         localStorage.setItem(AUTOSAVE_KEY, raw);
         setSaveStatus('Autosaved');
       } catch (err) {
-        /* localStorage can be exhausted by large canvases. Keep a second,
-           structured-clone-capable recovery copy in IndexedDB when available. */
-        try { localStorage.removeItem(AUTOSAVE_KEY); } catch (removeError) {}
+        /* localStorage can be exhausted by large canvases. Preserve the old
+           recovery file until IndexedDB confirms the replacement is durable. */
         openRecoveryDb(function (db) {
           if (!db) { setSaveStatus('Save storage full'); return; }
           try {
             var tx = db.transaction('projects', 'readwrite');
             tx.objectStore('projects').put(raw, 'latest');
-            tx.oncomplete = function () { db.close(); setSaveStatus('Autosaved'); };
+            tx.oncomplete = function () {
+              /* Only remove the older local copy after the IndexedDB commit;
+                 a failed write must never erase the last recoverable project. */
+              try { localStorage.removeItem(AUTOSAVE_KEY); } catch (removeError) {}
+              db.close();
+              setSaveStatus('Autosaved');
+            };
             tx.onerror = function () { db.close(); setSaveStatus('Recovery failed'); };
             tx.onabort = function () { db.close(); setSaveStatus('Recovery failed'); };
           } catch (writeError) { db.close(); setSaveStatus('Recovery failed'); }
