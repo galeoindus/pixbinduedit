@@ -2258,14 +2258,19 @@
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     $$('.pane').forEach(function (p) { p.classList.toggle('active', p.dataset.pane === name); });
-    byId('side').classList.add('open');
+    var side = byId('side');
+    side.classList.add('open');
+    var handle = byId('sheet-grab');
+    if (handle) handle.setAttribute('aria-expanded', 'true');
   }
 
   function toggleTab(name) {
     var side = byId('side');
-    var isMobile = window.matchMedia('(max-width: 880px)').matches;
-    if (isMobile && S.tab === name && side.classList.contains('open')) {
+    var isCompact = window.matchMedia('(max-width: 980px)').matches;
+    if (isCompact && S.tab === name && side.classList.contains('open')) {
       side.classList.remove('open');
+      var handle = byId('sheet-grab');
+      if (handle) handle.setAttribute('aria-expanded', 'false');
       return;
     }
     openTab(name);
@@ -2292,6 +2297,11 @@
     function beginPinch() {
       var pts = pointerList();
       if (pts.length < 2) return;
+      /* A second finger may arrive while the first is drawing, shaping or moving.
+         Finish that gesture before switching to camera navigation; otherwise a
+         smooth stroke buffer can be left uncommitted. */
+      if (S.drag || S.panning) onUp();
+      S.preview = null;
       pinchStart = {
         dist: Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)),
         zoom: effZoom(),
@@ -2300,8 +2310,6 @@
         sl: stageWrap.scrollLeft,
         st: stageWrap.scrollTop
       };
-      S.drag = null;
-      S.preview = null;
     }
     function updatePinch() {
       var pts = pointerList();
@@ -2314,6 +2322,9 @@
       stageWrap.scrollTop = pinchStart.st - (cy - pinchStart.cy);
     }
     screen.addEventListener('pointerdown', function (e) {
+      /* Capture every tool's pointer, not only pencil/eraser, so drags keep
+         receiving events when a finger, pen or mouse leaves the canvas. */
+      if (screen.setPointerCapture) { try { screen.setPointerCapture(e.pointerId); } catch (err) {} }
       pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
       if (Object.keys(pointers).length > 1) { beginPinch(); return; }
       onDown(e);
@@ -2328,7 +2339,12 @@
       if (Object.keys(pointers).length < 2) pinchStart = null;
     }
     screen.addEventListener('pointerup', endPointer);
-    screen.addEventListener('pointercancel', endPointer);
+    screen.addEventListener('pointercancel', function (e) {
+      endPointer(e);
+      /* Browsers may cancel a pointer when native input handling takes over.
+         Commit/close the active gesture just as on pointerup. */
+      onUp();
+    });
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     screen.addEventListener('contextmenu', function (e) { e.preventDefault(); });
@@ -2674,7 +2690,10 @@
     }
     syncViewport();
     on('sheet-grab', 'click', function () {
-      byId('side').classList.toggle('open');
+      var side = byId('side');
+      side.classList.toggle('open');
+      var handle = byId('sheet-grab');
+      if (handle) handle.setAttribute('aria-expanded', side.classList.contains('open') ? 'true' : 'false');
       setTimeout(fitZoom, 260);
     });
   }
@@ -2997,7 +3016,7 @@
        "everything looks like blocks" first impression we are fixing */
     newDoc(1024, 1024);
     S.ready = true;
-    if (window.matchMedia('(min-width: 881px)').matches) openTab('text');
+    if (window.matchMedia('(min-width: 981px)').matches) openTab('text');
   }
 
   /* The Nirbhar engine returns plain {width,height,data} buffers; the canvas API
