@@ -2639,7 +2639,7 @@
       if (!S.selectedObj) { toast('Select an object first'); return; }
       deleteObject(S.selectedObj);
     });
-    $('[data-object-transform]').forEach(function (b) {
+    $$('[data-object-transform]').forEach(function (b) {
       b.onclick = function () { transformSelectedObject(b.dataset.objectTransform); };
     });
 
