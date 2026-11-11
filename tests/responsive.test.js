@@ -89,3 +89,8 @@ test('autosave falls back to IndexedDB and device profiles cap mobile backing st
   assert.match(app, /budget = coarse \? 8e6 : MAX_BACKING/);
   assert.match(app, /new ResizeObserver/);
 });
+
+test('object transform toolbar binds every button without breaking editor boot', () => {
+  assert.ok(app.includes("$$('[data-object-transform]').forEach(function (b)"));
+  assert.ok(!app.includes("$('[data-object-transform]').forEach(function (b)"));
+});
