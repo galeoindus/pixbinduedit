@@ -47,7 +47,10 @@ test('pen pressure uses PointerEvent pressure only when enabled for pen input', 
 
 test('coalesced pointer samples are processed before a single redraw', () => {
   assert.match(app, /getCoalescedEvents\(\)/);
-  assert.match(app, /for \(var i = 0; i < samples\.length; i\+\+\) onMove\(samples\[i\]\)/);
+  assert.match(app, /onMove\(samples\[i\], true\)/);
+  assert.match(app, /if \(shouldRender\) render\(\)/);
+  const move = app.slice(app.indexOf('function onMove(e'), app.indexOf('function onUp()', app.indexOf('function onMove(e')));
+  assert.match(move, /if \(changed && !deferRender\) render\(\)/);
 });
 
 test('layer blend modes are validated, rendered and saved with masks', () => {
