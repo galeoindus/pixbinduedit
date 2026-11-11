@@ -1079,7 +1079,7 @@
     render();
   }
 
-  function onMove(e) {
+  function onMove(e, deferRender) {
     var p = pixelFromEvent(e);
     byId('status-pos').textContent = p.inside ? (p.x + ', ' + p.y) : '—';
 
@@ -1087,18 +1087,19 @@
       stageWrap.scrollLeft -= e.clientX - S.panning.x;
       stageWrap.scrollTop -= e.clientY - S.panning.y;
       S.panning = { x: e.clientX, y: e.clientY };
-      return;
+      return false;
     }
-    if (!S.drag) return;
+    if (!S.drag) return false;
 
+    var changed = false;
     if (S.drag.type === 'draw') {
       var l = activeLayer();
-      if (!l) return;
+      if (!l) return false;
       var fp = pointFromEvent(e);
       var pressureBrush = brushForPointer(e);
       var segmentBrush = (S.drag.lastBrush + pressureBrush) / 2;
       if (S.crisp) {
-        if (!p.inside) { S.drag.last = p; S.drag.lastBrush = pressureBrush; return; }
+        if (!p.inside) { S.drag.last = p; S.drag.lastBrush = pressureBrush; return false; }
         strokeTo(l, S.drag.last.x, S.drag.last.y, p.x, p.y, S.drag.color, S.drag.erase, pressureBrush);
         S.drag.last = p;
       } else {
@@ -1108,10 +1109,10 @@
         S.drag.last = p;
       }
       S.drag.lastBrush = pressureBrush;
-      render();
+      changed = true;
     } else if (S.drag.type === 'shape') {
       S.preview.x1 = p.x; S.preview.y1 = p.y;
-      render();
+      changed = true;
     } else if (S.drag.type === 'resize') {
       var ob = S.drag.obj, sb = S.drag.startBounds, hdl = S.drag.handle;
       var dx = p.x - S.drag.start.x, dy = p.y - S.drag.start.y;
@@ -1131,7 +1132,7 @@
         ob._cache = null;
       }
       S.drag.changed = true;
-      render();
+      changed = true;
     } else if (S.drag.type === 'rotate') {
       var o2 = S.drag.obj, b2 = objectBounds(o2);
       var cx2 = b2.x + b2.w / 2, cy2 = b2.y + b2.h / 2;
@@ -1139,22 +1140,25 @@
       o2.rotation = Math.round(ang);
       o2._cache = null;
       S.drag.changed = true;
-      render();
+      changed = true;
     } else if (S.drag.type === 'objmove') {
       var o = S.drag.obj;
       o.x = S.drag.ox + (p.x - S.drag.start.x);
       o.y = S.drag.oy + (p.y - S.drag.start.y);
       o._cache = null;
       S.drag.moved = true;
-      render();
+      changed = true;
     } else if (S.drag.type === 'sel' || S.drag.type === 'crop') {
       S.drag.cur = p;
-      render();
+      changed = true;
     } else if (S.drag.type === 'move' && S.floating) {
       S.floating.dx = p.x - S.drag.start.x;
       S.floating.dy = p.y - S.drag.start.y;
-      render();
+      changed = true;
     }
+
+    if (changed && !deferRender) render();
+    return changed;
   }
 
   function onUp() {
@@ -2494,7 +2498,11 @@
         try { samples = e.getCoalescedEvents() || []; } catch (err) { samples = []; }
       }
       if (!samples.length) samples = [e];
-      for (var i = 0; i < samples.length; i++) onMove(samples[i]);
+      var shouldRender = false;
+      for (var i = 0; i < samples.length; i++) {
+        if (onMove(samples[i], true)) shouldRender = true;
+      }
+      if (shouldRender) render();
     });
     window.addEventListener('pointerup', onUp);
     screen.addEventListener('contextmenu', function (e) { e.preventDefault(); });
