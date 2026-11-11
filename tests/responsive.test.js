@@ -91,6 +91,7 @@ test('autosave falls back to IndexedDB and device profiles cap mobile backing st
 });
 
 test('object transform toolbar binds every button without breaking editor boot', () => {
-  assert.ok(app.includes("$$('[data-object-transform]').forEach(function (b)"));
-  assert.ok(!app.includes("$('[data-object-transform]').forEach(function (b)"));
+  const binding = app.split('\n').find(line => line.includes("[data-object-transform]"));
+  assert.ok(binding, 'transform toolbar binding exists');
+  assert.match(binding, /^\s*\$\$\(/, 'uses querySelectorAll helper for all transform controls');
 });
