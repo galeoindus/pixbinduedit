@@ -123,3 +123,31 @@ test('virtual keyboard inset is applied to the compact inspector sheet', () => {
   assert.match(css, /--sheet-open-max/);
   assert.match(css, /--sheet-peek-height/);
 });
+
+/* The workspace is a grid with three columns and, until this test existed, no
+ * row track. Its implicit `auto` row was sized by the tallest child — the
+ * stage, which is document size × zoom — so at 1920×1080 the row measured
+ * 1575px inside a 1028px workspace and pushed the status bar and the bottom of
+ * the side panel off a viewport that cannot scroll (html/body overflow:hidden).
+ * A plain declaration check is enough: the browser then has a definite row to
+ * shrink the stage inside. */
+test('the workspace declares a bounded row so the stage cannot stretch it', () => {
+  const block = css.slice(css.indexOf('.workspace {'), css.indexOf('}', css.indexOf('.workspace {')));
+  assert.match(block, /grid-template-rows:\s*minmax\(0,\s*1fr\)/,
+    '.workspace needs grid-template-rows: minmax(0, 1fr)');
+});
+
+test('the top bar carries the notch inset in --top, not in its own height', () => {
+  /* The first grid row of .app is var(--top); if the inset lived only on
+     .topbar the bar would be taller than its row and overlap the workspace. */
+  assert.match(css, /--top:\s*calc\(52px \+ env\(safe-area-inset-top/);
+  assert.match(css, /padding-top:\s*env\(safe-area-inset-top/);
+  const block = css.slice(css.indexOf('.topbar {'), css.indexOf('}', css.indexOf('.topbar {')));
+  assert.doesNotMatch(block, /^\s*height:/m, '.topbar must not set its own height');
+});
+
+test('the app height has a vh fallback before dvh', () => {
+  /* Older Safari and Android WebViews drop a declaration they cannot parse,
+     which left .app with no height at all. */
+  assert.match(css, /height:\s*100vh;\s*\n\s*height:\s*100dvh;/);
+});

@@ -12,7 +12,11 @@
   --accent-2: #60a5fa;
   --warn: #fbbf24;
   --radius: 12px;
-  --top: 52px;
+  /* The top bar's own height plus the notch/status-bar inset. `.app`'s first
+     grid row is `var(--top)` and the top bar fills that row, so the inset has
+     to be part of the variable — adding it only to .topbar would make the bar
+     taller than its row and overlap the workspace underneath. */
+  --top: calc(52px + env(safe-area-inset-top, 0px));
   --rail-w: 58px;
   --side-w: 330px;
 }
@@ -49,7 +53,18 @@ h4:first-child { margin-top: 0; }
    screen — and on a 360px phone 50px did — with html/body overflow:hidden and
    no way to scroll it back. Measured before: .workspace 410 inside a 390
    viewport. After: 390, and 360 on a 360. */
-.app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--top) 1fr; height: 100dvh; }
+/* `100vh` first, then `100dvh`. The dynamic unit is what keeps the app the
+   height of the visible area when a mobile browser hides its address bar, but
+   Safari before 15.4 and older Android WebViews drop the whole declaration when
+   they meet an unknown unit — leaving .app with no height at all and the
+   workspace collapsing to its content. The plain unit is the fallback. */
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--top) 1fr;
+  height: 100vh;
+  height: 100dvh;
+}
 
 /* ------------------------------------------------------------------ topbar */
 
@@ -58,6 +73,15 @@ h4:first-child { margin-top: 0; }
   align-items: center;
   gap: 8px;
   padding: 0 12px;
+  /* `viewport-fit=cover` is set so the canvas may use the whole screen; that
+     also means the top bar starts under the notch and the status bar when the
+     app runs installed (display: standalone). The inset only exists on such
+     devices, so the fallback keeps the desktop padding exactly as it was. */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  /* No height here on purpose: `--top` already carries the inset and the bar
+     fills the first grid row of `.app`, so its box is exactly that row. */
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   position: relative;
@@ -130,9 +154,19 @@ h4:first-child { margin-top: 0; }
 
 /* ---------------------------------------------------------------- workspace */
 
+/* `grid-template-rows: minmax(0, 1fr)` is load-bearing, not decoration.
+   With only columns declared, the implicit row is `auto`, so it is sized by
+   the tallest child — and the tallest child is the stage, whose height is the
+   document size times the zoom. At 1920×1080 a 64×64 document fitted the
+   screen at 22× and the stage measured 1440px, which made the row 1575px
+   inside a 1028px workspace: the status bar and the bottom of the side panel
+   were pushed off the viewport with html/body `overflow: hidden` and no way to
+   reach them. The row is now exactly the workspace height and the stage
+   scrolls inside .stage-wrap, which is what that container is for. */
 .workspace {
   display: grid;
   grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--side-w);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   position: relative;
 }
