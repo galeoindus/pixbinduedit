@@ -358,3 +358,159 @@ test('makeSeamless leaves opposite edges matching', () => {
     assert.deepStrictEqual(px(out, x, 0), px(out, x, 19), 'top and bottom edge differ at x=' + x);
   }
 });
+
+/* ---------------------------------------------------------------- 1.2 tools */
+
+/* A GIF decoder for the LZW stream, written here so the encoder is proven by
+ * this repository's own tests rather than by an outside tool. It mirrors what a
+ * browser does: read `codeSize` bits, grow the width as the table fills, and add
+ * one entry per code after the first. */
+function lzwDecode(bytes, minCodeSize, pixelCount) {
+  const clearCode = 1 << minCodeSize;
+  const eoiCode = clearCode + 1;
+  let codeSize = minCodeSize + 1;
+  let next = eoiCode + 1;
+  let dict = [];
+  const reset = () => {
+    dict = [];
+    for (let i = 0; i < clearCode; i++) dict[i] = [i];
+    dict[clearCode] = [];
+    dict[eoiCode] = [];
+    codeSize = minCodeSize + 1;
+    next = eoiCode + 1;
+  };
+  reset();
+  const out = [];
+  let bitPos = 0;
+  let prev = null;
+  const readCode = () => {
+    let v = 0;
+    for (let i = 0; i < codeSize; i++) {
+      const byte = bytes[(bitPos + i) >> 3];
+      if (byte === undefined) return -1;
+      v |= ((byte >> ((bitPos + i) & 7)) & 1) << i;
+    }
+    bitPos += codeSize;
+    return v;
+  };
+  for (;;) {
+    const code = readCode();
+    if (code < 0 || code === eoiCode) break;
+    if (code === clearCode) { reset(); prev = null; continue; }
+    let entry;
+    if (code < next && dict[code]) entry = dict[code];
+    else if (code === next && prev) entry = prev.concat([prev[0]]);
+    else throw new Error('bad LZW code ' + code + ' at ' + out.length);
+    for (const v of entry) out.push(v);
+    if (prev && next < 4096) {
+      dict[next] = prev.concat([entry[0]]);
+      next++;
+      if (next === (1 << codeSize) && codeSize < 12) codeSize++;
+    }
+    prev = entry;
+    if (out.length > pixelCount + 16) break;
+  }
+  return out.slice(0, pixelCount);
+}
+
+test('LZW round-trips a repeating index stream at every width', () => {
+  const cases = [
+    { idx: [2, 1, 0, 3, 1, 0, 3, 2, 0, 3, 2, 1, 3, 2, 1, 0], bits: 2 },
+    { idx: Array.from({ length: 300 }, (_, i) => i % 7), bits: 3 },
+    { idx: Array.from({ length: 900 }, (_, i) => (i * 13) % 251), bits: 8 }
+  ];
+  for (const c of cases) {
+    const bytes = Uint8Array.from(N.lzwEncode(c.idx, c.bits));
+    const back = lzwDecode(bytes, c.bits, c.idx.length);
+    assert.deepEqual(back, c.idx, 'round trip at ' + c.bits + ' bits');
+  }
+});
+
+test('encodeGif writes a valid, multi-frame, looping GIF', () => {
+  const frames = [];
+  for (let f = 0; f < 3; f++) {
+    const im = N.blank(8, 8);
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 8; x++) {
+        const i = (y * 8 + x) * 4;
+        if (x >= f * 2 && x < f * 2 + 3 && y >= 2 && y < 6) {
+          im.data[i] = 230; im.data[i + 1] = 40; im.data[i + 2] = 40; im.data[i + 3] = 255;
+        } else if (y < 1) {
+          im.data[i + 3] = 0;
+        } else {
+          im.data[i] = 20; im.data[i + 1] = 30; im.data[i + 2] = 60; im.data[i + 3] = 255;
+        }
+      }
+    }
+    frames.push(im);
+  }
+  const gif = N.encodeGif(frames, { delay: 120, transparent: true });
+  assert.ok(gif && gif.bytes.length > 40, 'gif has bytes');
+  const head = String.fromCharCode.apply(null, Array.from(gif.bytes.slice(0, 6)));
+  assert.equal(head, 'GIF89a', 'GIF89a signature');
+  assert.equal(gif.bytes[gif.bytes.length - 1], 0x3b, 'trailer byte');
+  assert.equal(gif.frames, 3);
+  /* one graphic control extension + one image descriptor per frame */
+  const count = (b) => gif.bytes.reduce((n, v) => n + (v === b ? 1 : 0), 0);
+  assert.ok(count(0x2c) >= 3, 'an image descriptor per frame');
+  assert.ok(String.fromCharCode.apply(null, Array.from(gif.bytes)).includes('NETSCAPE2.0'), 'loop extension');
+});
+
+test('pixelate quantises to the grid and honours the palette size', () => {
+  /* two flat halves, so "the next block differs" is a statement about the grid
+     and not about how a smooth gradient happened to quantise */
+  const photo = img(64, 64, (x) => (x < 32 ? [220, 30, 30, 255] : [30, 30, 200, 255]));
+  const out = N.pixelate(photo, { block: 8, colors: 8 });
+  assert.equal(out.img.width, 64, 'same width');
+  assert.equal(out.img.height, 64, 'same height');
+  assert.ok(out.palette.length <= 8, 'no more colours than asked for');
+  assert.ok(out.palette.length >= 2, 'at least two colours');
+  /* every 8x8 block is one flat colour, which is what "pixel art" means */
+  const at = (x, y) => {
+    const i = (y * 64 + x) * 4;
+    return [out.img.data[i], out.img.data[i + 1], out.img.data[i + 2]].join(',');
+  };
+  assert.equal(at(0, 0), at(7, 7), 'block is flat');
+  assert.equal(at(0, 0), at(24, 16), 'every block in the left half is the same ink');
+  assert.notEqual(at(0, 0), at(32, 0), 'the right half is a different ink');
+});
+
+test('pixelate keeps a cut-out edge from turning into a dark fringe', () => {
+  /* fully transparent pixels next to red ones: an alpha-blind average would
+     pull the red towards black */
+  const im = img(16, 16, (x) => (x < 8 ? [220, 20, 20, 255] : [0, 0, 0, 0]));
+  const out = N.pixelate(im, { block: 4, colors: 4 });
+  const i = (8 * 16 + 8) * 4;             /* first pixel of the transparent half */
+  assert.equal(out.img.data[i + 3], 0, 'transparent stays transparent');
+  const j = (8 * 16 + 4) * 4;             /* last pixel of the red half */
+  assert.ok(out.img.data[j] > 120, 'red is not darkened by the empty half');
+});
+
+test('glow spreads light from a bright pixel into its neighbours', () => {
+  const im = img(32, 32, () => [0, 0, 0, 255]);
+  const i = (16 * 32 + 16) * 4;
+  im.data[i] = 255; im.data[i + 1] = 255; im.data[i + 2] = 255;
+  const out = N.glow(im, { radius: 4, strength: 1, threshold: 0.5 });
+  const near = (15 * 32 + 16) * 4;
+  assert.ok(out.img.data[near] > 0, 'neighbour picked up light');
+  assert.ok(out.img.data[i] === 255, 'the source stays bright');
+  const far = (2 * 32 + 2) * 4;
+  assert.equal(out.img.data[far], 0, 'far away stays dark');
+});
+
+test('sliceSheet and buildSpriteSheet round-trip frames', () => {
+  const frames = [0, 1, 2].map((f) => img(6, 6, () => [f * 60, 40, 90, 255]));
+  const sheet = N.buildSpriteSheet(frames, { cols: 3 });
+  assert.ok(sheet && sheet.img.width === 18 && sheet.img.height === 6, 'sheet is 3 across');
+  const cut = N.sliceSheet(sheet.img, { cols: 3, rows: 1 });
+  assert.equal(cut.frames.length, 3, 'three frames back');
+  assert.equal(cut.frames[0].width, 6, 'frame width preserved');
+  assert.equal(cut.frames[2].data[0], 120, 'third frame keeps its colour');
+});
+
+test('sliceSheet reports a grid that cannot fit instead of throwing', () => {
+  const small = img(5, 5, () => [1, 2, 3, 255]);
+  const cut = N.sliceSheet(small, { cols: 8, rows: 8 });
+  assert.equal(cut.frames.length, 0);
+  assert.ok(/does not fit/i.test(cut.note));
+});

@@ -10,7 +10,7 @@ This is the same manual the editor shows in **Nirbhar → Manual**, which switch
 
 ### What Nirbhar is
 
-Nirbhar means self-reliant. It is the offline toolbox built into Pixel Studio Edit: fourteen tools that remove a background, put a new one behind it, lift photo quality, upscale, make a PDF, build an app icon, lay out a photo grid, draw generative art and more. Everything is computed by this page on your own device. There is no upload, no account, no API key, no model download and no internet connection involved.
+Nirbhar means self-reliant. It is the offline toolbox built into Pixel Studio Edit: eighteen tools that remove a background, put a new one behind it, lift photo quality, upscale, make a PDF, build an app icon, lay out a photo grid, draw generative art and more. Everything is computed by this page on your own device. There is no upload, no account, no API key, no model download and no internet connection involved.
 
 ### Start in four steps
 
@@ -19,7 +19,7 @@ Nirbhar means self-reliant. It is the offline toolbox built into Pixel Studio Ed
 3. Change the settings until the preview looks right; the preview is a scaled copy, the real work happens at full size.
 4. Press Add as new layer. Your original stays exactly as it was, and the result becomes a new layer you can keep editing.
 
-### The fourteen tools
+### The eighteen tools
 
 ### ✂ Nirbhar Cut — Background remover
 
@@ -104,6 +104,30 @@ Adds a tiled watermark or stamp across the artwork.
 Converts and resizes many images at once, all on this device.
 
 *Choose the files, set the longest side, the format and the quality, then press Add as new layer. Each converted file is saved separately, so a whole folder can be prepared in one go.*
+
+### ▩ Nirbhar Pixel — Photo to pixel art
+
+Turns a photo or a drawing into real pixel art: a fixed grid, a small palette and optional dithering.
+
+*Pixel block sets the size of one art pixel, so 8 on a 1024-pixel image gives a 128-pixel-wide sprite. Colours sets how many inks the result may use — fewer colours read more like a console sprite. Dither the gradients swaps clean bands for a stippled pattern, and Dark outline adds a border so the sprite reads against any background. The result opens as a new document.*
+
+### ✧ Nirbhar Glow — Neon bloom
+
+Adds a soft neon bloom around the bright parts of the artwork.
+
+*Brightness threshold decides what counts as bright enough to glow, Glow radius decides how far the light spreads, and Strength decides how strong it is. Turn on Tint the glow to force a colour — that is how a coloured neon sign or a light-sabre edge is made. Keep the radius small on pixel art so single pixels stay single pixels.*
+
+### ▶ Nirbhar Motion — Animated GIF
+
+Builds an animated GIF, and a matching sprite sheet, from your layers or from a grid.
+
+*Choose Each visible layer to use every visible layer as one frame, or A grid on the canvas to cut a grid into frames. Frame delay sets the speed in milliseconds, and Loop forever repeats the animation. Keep transparency keeps empty pixels empty. Press Generate: the .gif downloads, with a sprite sheet PNG beside it when that switch is on. Nothing is uploaded and no encoder library is loaded — the GIF is written by this page.*
+
+### ⧉ Nirbhar Grid — Sprite sheet slicer
+
+Cuts an existing sprite sheet into single frames and packs them into a .zip.
+
+*Set the number of Columns and Rows the sheet uses, the Gap between frames if there is one, and stop after N frames if the sheet holds more than you need. Every frame is written as its own PNG named frame-01.png, frame-02.png and so on.*
 
 
 ### What each tool is built from
@@ -191,7 +215,7 @@ markers, and translate the text between them. Nothing else has to change.
 3. सेटिंग्स तब तक बदलें जब तक प्रीव्यू सही न दिखने लगे; प्रीव्यू एक स्केल की गई कॉपी है, असली काम फुल साइज़ में होता है।
 4. Add as new layer दबाएं। आपकी ओरिजिनल लेयर बिल्कुल वैसी ही रहेगी, और रिज़ल्ट एक नया लेयर बन जाएगा जिसे आप एडिट करते रह सकते हैं।
 
-### चौदह टूल्स
+### अठारह टूल्स
 
 ### ✂ Nirbhar Cut — Background remover
 
@@ -276,6 +300,30 @@ markers, and translate the text between them. Nothing else has to change.
 एक साथ कई इमेजेस को कन्वर्ट और रीसाइज़ करता है, वो भी इसी डिवाइस पर।
 
 *फाइलें चुनें, सबसे लंबा साइड, फॉर्मेट और क्वालिटी सेट करें, फिर Add as new layer दबाएं। हर कन्वर्ट की गई फाइल अलग से सेव होती है, इसलिए एक पूरे फोल्डर को एक ही बार में तैयार किया जा सकता है।*
+
+### ▩ Nirbhar Pixel — फोटो से पिक्सेल आर्ट
+
+किसी फोटो या ड्राइंग को असली पिक्सेल आर्ट में बदलता है: एक फिक्स्ड ग्रिड, एक छोटी पैलेट और ऑप्शनल डिथरिंग।
+
+*पिक्सेल ब्लॉक एक आर्ट पिक्सेल का साइज़ सेट करता है, इसलिए 1024-पिक्सेल इमेज पर 8 सेट करने से 128-पिक्सेल चौड़ा स्प्राइट मिलता है। कलर्स सेट करता है कि रिज़ल्ट में कितने रंग इस्तेमाल हो सकते हैं। डिथर द ग्रेडिएंट्स साफ़ बैंड्स की जगह एक डॉटेड पैटर्न लगा देता है, और डार्क आउटलाइन एक बॉर्डर जोड़ देता है ताकि स्प्राइट किसी भी बैकग्राउंड पर साफ़ दिखे। रिज़ल्ट एक नए डॉक्यूमेंट के रूप में खुलता है।*
+
+### ✧ Nirbhar Glow — नियॉन ब्लूम
+
+आर्टवर्क के चमकीले हिस्सों के चारों ओर एक सॉफ्ट नियॉन ब्लूम जोड़ता है।
+
+*ब्राइटनेस थ्रेशोल्ड तय करता है कि ग्लो करने के लिए कितना चमकीला होना चाहिए, ग्लो रेडियस तय करता है कि रोशनी कितनी दूर तक फैलेगी, और स्ट्रेंथ तय करता है कि यह कितना तेज़ है। किसी खास रंग को फ़ोर्स करने के लिए टिंग द ग्लो ऑन करें। पिक्सेल आर्ट पर रेडियस छोटा रखें ताकि सिंगल पिक्सेल सिंगल पिक्सेल ही रहें।*
+
+### ▶ Nirbhar Motion — एनिमेटेड GIF
+
+आपके लेयर्स या ग्रिड से एक एनिमेटेड GIF और उसके हिसाब से एक स्प्राइट शीट बनाता है।
+
+*हर विज़िबल लेयर को चुनें ताकि हर विज़िबल लेयर एक फ्रेम बन जाए, या कैनवस पर एक ग्रिड चुनें ताकि ग्रिड को फ्रेम्स में काटा जा सके। फ्रेम डिले मिलीसेकंड्स में स्पीड सेट करता है, और लूप फॉरएवर एनिमेशन को बार-बार रिपीट करता है। कीप ट्रांसपेरेंसी खाली पिक्सेल को खाली ही रखती है। जनरेट दबाएं: .gif डाउनलोड हो जाएगा, और अगर वह स्विच ऑन है तो उसके बगल में एक स्प्राइट शीट PNG भी मिलेगी।*
+
+### ⧉ Nirbhar Grid — स्प्राइट शीट स्लाइसर
+
+एक मौजूद स्प्राइट शीट को सिंगल फ्रेम्स में काटता है और उन्हें एक .zip में पैक करता है।
+
+*शीट में इस्तेमाल होने वाले कॉलम्स और रोज़ की संख्या सेट करें, अगर कोई गैप है तो फ्रेम्स के बीच का गैप सेट करें, और अगर शीट में ज़रूरत से ज़्यादा फ्रेम हैं तो N फ्रेम्स के बाद रुक जाएं। हर फ्रेम को उसके अपने PNG के रूप में सेव किया जाता है, जिसका नाम frame-01.png, frame-02.png आदि होता है।*
 
 
 ### टिप्स

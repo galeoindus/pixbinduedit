@@ -648,8 +648,141 @@
           });
         });
       }
+    },
+    {
+      id: 'pixel', icon: '▩', name: 'Nirbhar Pixel', tag: 'Photo to pixel art',
+      source: 'design', newDoc: true,
+      fields: [
+        { k: 'block', t: 'range', def: 8, min: 2, max: 40, step: 1, label: 'Pixel block (px)' },
+        { k: 'colors', t: 'range', def: 16, min: 2, max: 48, step: 1, label: 'Colours' },
+        { k: 'dither', t: 'check', def: false, label: 'Dither the gradients' },
+        { k: 'ditherStrength', t: 'range', def: 60, min: 0, max: 100, step: 5, label: 'Dither strength %' },
+        { k: 'outline', t: 'check', def: false, label: 'Dark outline' },
+        { k: 'outlineWidth', t: 'range', def: 1, min: 1, max: 4, step: 1, label: 'Outline width' },
+        { k: 'outlineColor', t: 'color', def: '#12141a', label: 'Outline colour' }
+      ],
+      run: function (img, v, scale) {
+        var k = scale || 1;
+        var res = N.pixelate(img, {
+          block: Math.max(1, Math.round(v.block * k)),
+          colors: v.colors,
+          dither: v.dither,
+          ditherStrength: v.ditherStrength / 100,
+          outline: v.outline,
+          outlineWidth: Math.max(1, Math.round(v.outlineWidth * k)),
+          outlineColor: v.outlineColor
+        });
+        return { img: res.img, palette: res.palette, note: res.note };
+      }
+    },
+    {
+      id: 'glow', icon: '✧', name: 'Nirbhar Glow', tag: 'Neon bloom',
+      source: 'design',
+      fields: [
+        { k: 'radius', t: 'range', def: 8, min: 1, max: 40, step: 1, label: 'Glow radius (px)' },
+        { k: 'strength', t: 'range', def: 70, min: 5, max: 100, step: 5, label: 'Strength %' },
+        { k: 'threshold', t: 'range', def: 55, min: 10, max: 95, step: 5, label: 'Brightness threshold %' },
+        { k: 'tint', t: 'check', def: false, label: 'Tint the glow' },
+        { k: 'color', t: 'color', def: '#6ee7b7', label: 'Glow colour' }
+      ],
+      run: function (img, v, scale) {
+        var k = scale || 1;
+        return N.glow(img, {
+          radius: Math.max(1, Math.round(v.radius * k)),
+          strength: v.strength / 100,
+          threshold: v.threshold / 100,
+          color: v.tint ? v.color : null
+        });
+      }
+    },
+    {
+      id: 'motion', icon: '▶', name: 'Nirbhar Motion', tag: 'Animated GIF',
+      source: 'design', kind: 'file',
+      fields: [
+        { k: 'mode', t: 'select', def: 'layers', label: 'Frames from', opts: [['layers', 'Each visible layer'], ['grid', 'A grid on the canvas']] },
+        { k: 'cols', t: 'range', def: 4, min: 1, max: 16, step: 1, label: 'Grid columns' },
+        { k: 'rows', t: 'range', def: 1, min: 1, max: 16, step: 1, label: 'Grid rows' },
+        { k: 'delay', t: 'range', def: 120, min: 20, max: 1000, step: 20, label: 'Frame delay (ms)' },
+        { k: 'loop', t: 'check', def: true, label: 'Loop forever' },
+        { k: 'transparent', t: 'check', def: true, label: 'Keep transparency' },
+        { k: 'sheet', t: 'check', def: true, label: 'Also save a sprite sheet PNG' }
+      ],
+      run: function (img, v, scale) {
+        var frames = v.mode === 'grid'
+          ? N.sliceSheet(img, { cols: v.cols, rows: v.rows }).frames
+          : layerFrames(img.width, img.height);
+        if (!frames.length) return Promise.reject(new Error(T('ui.noFrames', 'No frames — add layers, or choose a grid')));
+        /* the dialog previews on a thumbnail; only the Generate pass builds the file */
+        if (scale && scale < 1) {
+          return { img: frames[0], note: frames.length + ' ' + T('ui.frames', 'frames') + ' · ' + T('ui.previewFirst', 'preview of the first') };
+        }
+        var gif = N.encodeGif(frames, {
+          delay: v.delay, loop: v.loop, transparent: v.transparent, colors: 64
+        });
+        var files = [{ blob: new Blob([gif.bytes], { type: 'image/gif' }), name: 'nirbhar-motion.gif' }];
+        var chain = Promise.resolve();
+        if (v.sheet) {
+          var sheet = N.buildSpriteSheet(frames, { cols: Math.ceil(Math.sqrt(frames.length)) });
+          chain = canvasToPng(sheet.img).then(function (bytes) {
+            files.push({ blob: new Blob([bytes], { type: 'image/png' }), name: 'nirbhar-sheet.png' });
+          });
+        }
+        return chain.then(function () {
+          return {
+            done: true, files: files,
+            note: gif.note + ' · GIF' + (v.sheet ? ' + ' + T('ui.sheet', 'sprite sheet') : '')
+          };
+        });
+      }
+    },
+    {
+      id: 'grid', icon: '⧉', name: 'Nirbhar Grid', tag: 'Sprite sheet slicer',
+      source: 'design', kind: 'file',
+      fields: [
+        { k: 'cols', t: 'range', def: 4, min: 1, max: 24, step: 1, label: 'Columns' },
+        { k: 'rows', t: 'range', def: 1, min: 1, max: 24, step: 1, label: 'Rows' },
+        { k: 'inset', t: 'range', def: 0, min: 0, max: 24, step: 1, label: 'Gap between frames (px)' },
+        { k: 'count', t: 'range', def: 0, min: 0, max: 64, step: 1, label: 'Stop after N frames (0 = all)' }
+      ],
+      run: function (img, v, scale) {
+        var s = N.sliceSheet(img, { cols: v.cols, rows: v.rows, inset: v.inset, count: v.count || 0 });
+        if (!s.frames.length) return Promise.reject(new Error(s.note));
+        if (scale && scale < 1) return { img: s.frames[0], note: s.note + ' · ' + T('ui.previewFirst', 'preview of the first') };
+        return Promise.all(s.frames.map(function (f, i) {
+          return canvasToPng(f).then(function (bytes) {
+            return { name: 'frame-' + String(i + 1).padStart(2, '0') + '.png', data: bytes };
+          });
+        })).then(function (list) {
+          var pack = N.zip(list);
+          return {
+            done: true,
+            files: [{ blob: new Blob([pack], { type: 'application/zip' }), name: 'nirbhar-frames.zip' }],
+            note: s.note + ' · zip'
+          };
+        });
+      }
     }
   ];
+
+  /* Every visible layer becomes one animation frame, drawn at the size the
+     caller asked for so the same code serves the thumbnail preview and the
+     full-resolution export. */
+  function layerFrames(targetW, targetH) {
+    var a = app();
+    var S = a && a.state;
+    if (!S || !S.layers) return [];
+    var out = [];
+    S.layers.forEach(function (l) {
+      if (!l.visible) return;
+      var cv = document.createElement('canvas');
+      cv.width = Math.max(1, targetW); cv.height = Math.max(1, targetH);
+      var ctx = cv.getContext('2d');
+      ctx.imageSmoothingEnabled = (targetW !== S.w);
+      ctx.drawImage(l.canvas, 0, 0, cv.width, cv.height);
+      out.push({ width: cv.width, height: cv.height, data: ctx.getImageData(0, 0, cv.width, cv.height).data });
+    });
+    return out;
+  }
 
   /* Reads File objects into ImageData, in order. */
   function loadFiles(files) {

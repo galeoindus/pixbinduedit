@@ -8,12 +8,13 @@ const hindi = manual.split('## हिन्दी')[1];
 
 const tools = [
   'Cut', 'Clear', 'Zoom', 'Tone', 'Tile', 'Pal', 'Paper',
-  'Sheet', 'Vector', 'Art', 'ID', 'Collage', 'Seal', 'Batch'
+  'Sheet', 'Vector', 'Art', 'ID', 'Collage', 'Seal', 'Batch',
+  'Pixel', 'Glow', 'Motion', 'Grid'
 ];
 
-test('English and Hindi manuals document all fourteen Nirbhar tools', () => {
+test('English and Hindi manuals document all eighteen Nirbhar tools', () => {
   assert.ok(hindi, 'Hindi manual section exists');
-  assert.match(hindi, /### चौदह टूल्स/);
+  assert.match(hindi, /### अठारह टूल्स/);
   for (const name of tools) {
     assert.match(english, new RegExp('^### .*Nirbhar ' + name + '(?:\\s|—)', 'm'), 'English manual: ' + name);
     assert.match(hindi, new RegExp('^### .*Nirbhar ' + name + '(?:\\s|—)', 'm'), 'Hindi manual: ' + name);

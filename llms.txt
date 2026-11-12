@@ -22,7 +22,8 @@ any static host.
 - Everything — drawing, layers, text styling, filters, dithering, PNG/JPEG/WebP
   export, project save and load — runs in the browser tab. Nothing is uploaded
   and no API key is involved.
-- The **Nirbhar** toolkit (fourteen offline tools: background remover, photo
+- The **Nirbhar** toolkit (eighteen offline tools: background remover, photo-to-pixel-art converter, neon glow, animated GIF
+  maker, sprite-sheet slicer, photo
   enhancer, upscaler, halftone, seamless tiles, palette studio, PDF maker, icon
   and sprite-sheet pack, SVG export, generative art, ID photo sheet, collage,
   watermark, batch convert) is plain JavaScript with no dependency and no model
@@ -38,7 +39,7 @@ any static host.
 - [Editor](https://galeoindus.github.io/pixelstudioedit/): the whole application
   — start screen, canvas, tool rail, panels, Nirbhar.
 - [Nirbhar manual](https://github.com/galeoindus/pixelstudioedit/blob/main/docs/NIRBHAR_MANUAL.md):
-  what each of the fourteen tools does and where its limits are (English and
+  what each of the eighteen tools does and where its limits are (English and
   Hindi).
 - [Source](https://github.com/galeoindus/pixelstudioedit): the repository, the
   issue tracker and the licence.

@@ -1736,10 +1736,422 @@
     return out;
   }
 
+  /* ------------------------------------------------------ 15. Nirbhar Pixel
+   * Photo → pixel art. The block size decides the grid, a median-cut palette
+   * decides the ink, and an optional ordered dither keeps gradients from
+   * banding. Everything is nearest-neighbour at the end so the result is real
+   * pixels rather than a smoothed thumbnail.
+   */
+
+  /* Median cut over the whole image, returning [r,g,b] triples. Unlike
+     extractPalette (which caps at 24 colours and returns hex for the UI) this
+     one is allowed to fill a 256-entry GIF table. */
+  function medianCutRgb(img, count) {
+    count = clamp(Math.round(count || 16), 2, 256);
+    var d = img.data, n = img.width * img.height;
+    var step = Math.max(1, Math.floor(n / 40000));
+    var pixels = [];
+    for (var i = 0; i < n; i += step) {
+      var j = i * 4;
+      if (d[j + 3] < 128) continue;
+      pixels.push([d[j], d[j + 1], d[j + 2]]);
+    }
+    if (!pixels.length) return [[0, 0, 0]];
+    var boxes = [pixels];
+    while (boxes.length < count) {
+      var bestIdx = -1, bestSpread = -1, bestChannel = 0;
+      for (var bi = 0; bi < boxes.length; bi++) {
+        var box = boxes[bi];
+        if (box.length < 2) continue;
+        for (var ch = 0; ch < 3; ch++) {
+          var mn = 255, mx = 0;
+          for (var k = 0; k < box.length; k++) {
+            if (box[k][ch] < mn) mn = box[k][ch];
+            if (box[k][ch] > mx) mx = box[k][ch];
+          }
+          if (mx - mn > bestSpread) { bestSpread = mx - mn; bestIdx = bi; bestChannel = ch; }
+        }
+      }
+      if (bestIdx < 0 || bestSpread <= 1) break;
+      var sorted = boxes[bestIdx].slice().sort(function (a, b) { return a[bestChannel] - b[bestChannel]; });
+      var mid = sorted.length >> 1;
+      boxes.splice(bestIdx, 1, sorted.slice(0, mid), sorted.slice(mid));
+    }
+    return boxes.map(function (box) {
+      var r = 0, g = 0, b = 0;
+      for (var k = 0; k < box.length; k++) { r += box[k][0]; g += box[k][1]; b += box[k][2]; }
+      var len = Math.max(1, box.length);
+      return [Math.round(r / len), Math.round(g / len), Math.round(b / len)];
+    });
+  }
+
+  /* Nearest palette entry, with an optional 4×4 ordered dither. */
+  function nearestIndex(pal, r, g, b) {
+    var best = 0, bestD = Infinity;
+    for (var i = 0; i < pal.length; i++) {
+      var dr = r - pal[i][0], dg = g - pal[i][1], db = b - pal[i][2];
+      var d2 = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11;
+      if (d2 < bestD) { bestD = d2; best = i; }
+    }
+    return best;
+  }
+
+  var BAYER4 = [
+    [0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]
+  ];
+
+  function mapToPalette(img, pal, dither, strength) {
+    var w = img.width, h = img.height, d = img.data;
+    var out = new Uint8Array(w * h);
+    var amt = clamp(strength == null ? 0.6 : strength, 0, 1) * 40;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var i = (y * w + x) * 4;
+        var bias = 0;
+        if (dither) {
+          /* shift each channel by a different slice of the Bayer matrix so the
+             dither does not tint the whole picture one way */
+          bias = (BAYER4[y & 3][x & 3] / 15 - 0.5) * amt;
+        }
+        out[y * w + x] = nearestIndex(pal,
+          clamp(d[i] + bias, 0, 255), clamp(d[i + 1] + bias, 0, 255), clamp(d[i + 2] + bias, 0, 255));
+      }
+    }
+    return out;
+  }
+
+  function pixelate(img, o) {
+    o = o || {};
+    var block = Math.max(1, Math.round(o.block || 8));
+    var w = Math.max(1, Math.round(img.width / block));
+    var h = Math.max(1, Math.round(img.height / block));
+    var sw = img.width, sh = img.height, src = img.data;
+    var small = blank(w, h);
+
+    /* alpha-weighted box average: averaging colour without its alpha is what
+       turns a cut-out subject's edges into a dark fringe */
+    for (var y = 0; y < h; y++) {
+      var y0 = Math.floor(y * sh / h);
+      var y1 = Math.min(sh, Math.max(y0 + 1, Math.floor((y + 1) * sh / h)));
+      for (var x = 0; x < w; x++) {
+        var x0 = Math.floor(x * sw / w);
+        var x1 = Math.min(sw, Math.max(x0 + 1, Math.floor((x + 1) * sw / w)));
+        var r = 0, g = 0, b = 0, a = 0, n = 0;
+        for (var sy = y0; sy < y1; sy++) {
+          for (var sx = x0; sx < x1; sx++) {
+            var si = (sy * sw + sx) * 4;
+            var al = src[si + 3];
+            r += src[si] * al; g += src[si + 1] * al; b += src[si + 2] * al;
+            a += al; n++;
+          }
+        }
+        var di = (y * w + x) * 4;
+        if (a > 0) {
+          small.data[di] = r / a; small.data[di + 1] = g / a; small.data[di + 2] = b / a;
+        }
+        small.data[di + 3] = n ? a / n : 0;
+      }
+    }
+
+    var colors = clamp(Math.round(o.colors || 16), 2, 64);
+    var pal = (o.palette && o.palette.length)
+      ? o.palette.map(function (hx) { return hexToRgb(hx); })
+      : medianCutRgb(small, colors);
+
+    var idx = mapToPalette(small, pal, !!o.dither, o.ditherStrength);
+    for (var p = 0; p < w * h; p++) {
+      var pi = p * 4, c = pal[idx[p]];
+      small.data[pi] = c[0]; small.data[pi + 1] = c[1]; small.data[pi + 2] = c[2];
+    }
+
+    var outW = w * block, outH = h * block;
+    var out = blank(outW, outH);
+    for (var oy = 0; oy < outH; oy++) {
+      var sy2 = Math.min(h - 1, Math.floor(oy / block));
+      for (var ox = 0; ox < outW; ox++) {
+        var sx2 = Math.min(w - 1, Math.floor(ox / block));
+        var sI = (sy2 * w + sx2) * 4, dI = (oy * outW + ox) * 4;
+        out.data[dI] = small.data[sI]; out.data[dI + 1] = small.data[sI + 1];
+        out.data[dI + 2] = small.data[sI + 2]; out.data[dI + 3] = small.data[sI + 3];
+      }
+    }
+
+    if (o.outline) {
+      out = addOutline(out, o.outlineColor || '#12141a', Math.max(1, Math.round(o.outlineWidth || 1)));
+    }
+    return {
+      img: out,
+      palette: pal.map(function (c) { return rgbToHex(c[0], c[1], c[2]); }),
+      grid: w + '×' + h,
+      note: w + '×' + h + ' pixels · ' + pal.length + ' colours · block ' + block + 'px'
+    };
+  }
+
+  /* A 1px hard outline around opaque pixels, for the classic pixel-art look. */
+  function addOutline(img, hex, thickness) {
+    var t = Math.max(1, thickness | 0), w = img.width, h = img.height;
+    var src = clone(img), rgb = hexToRgb(hex), d = img.data, s = src.data;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var i = (y * w + x) * 4;
+        if (s[i + 3] > 24) continue;
+        var hit = false;
+        for (var dy = -t; dy <= t && !hit; dy++) {
+          for (var dx = -t; dx <= t; dx++) {
+            var nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            if (s[(ny * w + nx) * 4 + 3] > 24) { hit = true; break; }
+          }
+        }
+        if (hit) { d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; d[i + 3] = 255; }
+      }
+    }
+    return img;
+  }
+
+  /* ------------------------------------------------------- 16. Nirbhar Glow
+   * A bloom pass: take the pixels above a luminance threshold, blur that mask,
+   * tint it and screen it back over the artwork. This is the neon/light-sabre
+   * look that pixel artists normally build by hand on a second layer.
+   */
+  function glow(img, o) {
+    o = o || {};
+    var w = img.width, h = img.height, d = img.data;
+    var radius = Math.max(1, Math.round(o.radius || 8));
+    var strength = clamp(o.strength == null ? 0.7 : o.strength, 0, 1);
+    var threshold = clamp(o.threshold == null ? 0.55 : o.threshold, 0, 1) * 255;
+    var tint = o.color ? hexToRgb(o.color) : null;
+
+    var mask = new Float32Array(w * h);
+    for (var i = 0; i < w * h; i++) {
+      var j = i * 4;
+      if (d[j + 3] < 24) continue;
+      var lum = luminance(d[j], d[j + 1], d[j + 2]);
+      if (lum > threshold) mask[i] = (lum - threshold) / Math.max(1, 255 - threshold) * (d[j + 3] / 255);
+    }
+    var blurred = boxBlurAlpha(mask, w, h, radius);
+    var out = clone(img);
+    for (var p = 0; p < w * h; p++) {
+      var k = blurred[p] * strength;
+      if (k <= 0.002) continue;
+      var q = p * 4;
+      /* An untinted bloom is white light. Using the destination pixel's own
+         colour here (as this first did) means a dark pixel glows dark — the
+         effect then only appears on pixels that were already bright, which is
+         the opposite of what a glow is for. */
+      var sr = tint ? tint[0] : 255, sg = tint ? tint[1] : 255, sb = tint ? tint[2] : 255;
+      /* screen blend keeps the glow additive without clipping to flat white */
+      out.data[q] = 255 - (255 - d[q]) * (255 - sr * k) / 255;
+      out.data[q + 1] = 255 - (255 - d[q + 1]) * (255 - sg * k) / 255;
+      out.data[q + 2] = 255 - (255 - d[q + 2]) * (255 - sb * k) / 255;
+      out.data[q + 3] = Math.max(d[q + 3], Math.round(255 * k));
+    }
+    return { img: out, note: 'Glow radius ' + radius + 'px · strength ' + Math.round(strength * 100) + '%' };
+  }
+
+  /* --------------------------------------------------- 17/18. Motion & Grid
+   * A sprite sheet is just a grid of frames. `sliceSheet` cuts one into frames,
+   * `buildSpriteSheet` lays frames back out, and `encodeGif` turns frames into
+   * an animated GIF — the one thing every pixel-art editor is expected to do.
+   */
+  function sliceSheet(img, o) {
+    o = o || {};
+    var cols = Math.max(1, Math.round(o.cols || 4));
+    var rows = Math.max(1, Math.round(o.rows || 4));
+    var inset = Math.max(0, Math.round(o.inset || 0));
+    var fw = Math.floor((img.width - inset * (cols - 1)) / cols);
+    var fh = Math.floor((img.height - inset * (rows - 1)) / rows);
+    var frames = [];
+    if (fw < 1 || fh < 1) return { frames: [], note: 'That grid does not fit this image' };
+    var limit = o.count ? Math.min(o.count, cols * rows) : cols * rows;
+    for (var r = 0; r < rows && frames.length < limit; r++) {
+      for (var c = 0; c < cols && frames.length < limit; c++) {
+        var fr = blank(fw, fh);
+        var ox = c * (fw + inset), oy = r * (fh + inset);
+        for (var y = 0; y < fh; y++) {
+          var si = ((oy + y) * img.width + ox) * 4, di = (y * fw) * 4;
+          for (var x = 0; x < fw * 4; x++) fr.data[di + x] = img.data[si + x];
+        }
+        frames.push(fr);
+      }
+    }
+    return { frames: frames, note: frames.length + ' frames of ' + fw + '×' + fh };
+  }
+
+  function buildSpriteSheet(frames, o) {
+    o = o || {};
+    if (!frames || !frames.length) return null;
+    var cols = Math.max(1, Math.round(o.cols || Math.ceil(Math.sqrt(frames.length))));
+    var rows = Math.ceil(frames.length / cols);
+    var pad = Math.max(0, Math.round(o.padding || 0));
+    var fw = frames[0].width, fh = frames[0].height;
+    var out = blank(cols * fw + pad * (cols - 1), rows * fh + pad * (rows - 1));
+    if (o.background) {
+      var bg = hexToRgb(o.background);
+      for (var i = 0; i < out.data.length; i += 4) {
+        out.data[i] = bg[0]; out.data[i + 1] = bg[1]; out.data[i + 2] = bg[2]; out.data[i + 3] = 255;
+      }
+    }
+    frames.forEach(function (f, n) {
+      var c = n % cols, r = Math.floor(n / cols);
+      var ox = c * (fw + pad), oy = r * (fh + pad);
+      for (var y = 0; y < fh; y++) {
+        for (var x = 0; x < fw; x++) {
+          var si = (y * fw + x) * 4, di = ((oy + y) * out.width + ox + x) * 4;
+          var a = f.data[si + 3] / 255;
+          if (a >= 1 || !o.background) {
+            out.data[di] = f.data[si]; out.data[di + 1] = f.data[si + 1];
+            out.data[di + 2] = f.data[si + 2]; out.data[di + 3] = f.data[si + 3];
+          } else if (a > 0) {
+            for (var ch = 0; ch < 3; ch++) {
+              out.data[di + ch] = f.data[si + ch] * a + out.data[di + ch] * (1 - a);
+            }
+          }
+        }
+      }
+    });
+    return { img: out, cols: cols, rows: rows, note: frames.length + ' frames · ' + cols + '×' + rows + ' sheet' };
+  }
+
+  /* GIF LZW. Codes are packed LSB-first into a byte stream, exactly as the
+     format specifies, and the code width grows as the dictionary fills. */
+  function lzwEncode(indices, minCodeSize) {
+    var clearCode = 1 << minCodeSize;
+    var eoiCode = clearCode + 1;
+    var codeSize = minCodeSize + 1;
+    var nextCode = eoiCode + 1;
+    var dict = new Map();
+    var out = [];
+    var cur = 0, bits = 0;
+
+    function emit(code) {
+      cur |= code << bits;
+      bits += codeSize;
+      while (bits >= 8) { out.push(cur & 255); cur >>= 8; bits -= 8; }
+    }
+
+    emit(clearCode);
+    var prefix = indices[0];
+    for (var i = 1; i < indices.length; i++) {
+      var k = indices[i];
+      var key = prefix * 256 + k;
+      var found = dict.get(key);
+      if (found !== undefined) { prefix = found; continue; }
+      emit(prefix);
+      /* Order matters. The decoder adds one entry per code it reads, starting
+         with the second one, so it is always one entry behind the encoder.
+         Widening the code BEFORE assigning the next entry (rather than after)
+         keeps both sides on the same width — bumping afterwards emits the next
+         code one bit too wide and every decoder then desynchronises. */
+      if (nextCode === 4096) {
+        emit(clearCode);
+        dict.clear();
+        nextCode = eoiCode + 1;
+        codeSize = minCodeSize + 1;
+      } else {
+        if (nextCode >= (1 << codeSize) && codeSize < 12) codeSize++;
+        dict.set(key, nextCode);
+        nextCode++;
+      }
+      prefix = k;
+    }
+    emit(prefix);
+    emit(eoiCode);
+    if (bits > 0) out.push(cur & 255);
+    return out;
+  }
+
+  function gifBlocks(bytes) {
+    /* GIF image data is a chain of sub-blocks of at most 255 bytes */
+    var out = [];
+    for (var i = 0; i < bytes.length; i += 255) {
+      var chunk = bytes.slice(i, i + 255);
+      out.push(chunk.length);
+      for (var j = 0; j < chunk.length; j++) out.push(chunk[j]);
+    }
+    out.push(0);
+    return out;
+  }
+
+  function encodeGif(frames, o) {
+    o = o || {};
+    frames = (frames || []).filter(function (f) { return f && f.width && f.height; });
+    if (!frames.length) return null;
+    var w = frames[0].width, h = frames[0].height;
+    var delay = Math.max(2, Math.round((o.delay == null ? 100 : o.delay) / 10));  /* hundredths */
+    var transparent = !!o.transparent;
+
+    /* One palette for every frame, built from all of them, so colours do not
+       shimmer from frame to frame. */
+    var pool = frames.length > 4 ? [frames[0], frames[Math.floor(frames.length / 2)], frames[frames.length - 1]] : frames;
+    var joined = pool[0];
+    if (pool.length > 1) {
+      var total = pool.reduce(function (n, f) { return n + f.width * f.height; }, 0);
+      joined = blank(1, total);
+      joined.width = total; joined.height = 1;
+      var at = 0;
+      pool.forEach(function (f) {
+        for (var i = 0; i < f.width * f.height * 4; i++) joined.data[at + i] = f.data[i];
+        at += f.width * f.height * 4;
+      });
+    }
+    var maxColors = transparent ? 255 : 256;
+    var pal = medianCutRgb(joined, Math.min(maxColors, clamp(o.colors || 64, 2, maxColors)));
+    if (transparent) pal.unshift([0, 0, 0]);      /* index 0 is the transparent slot */
+
+    var tableSize = 2;
+    while (tableSize < pal.length) tableSize <<= 1;
+    var sizeField = Math.max(0, Math.log2(tableSize) - 1);
+    var bytes = [];
+    var push = function (v) { bytes.push(v & 255); };
+    var push16 = function (v) { push(v & 255); push((v >> 8) & 255); };
+
+    'GIF89a'.split('').forEach(function (ch) { push(ch.charCodeAt(0)); });
+    push16(w); push16(h);
+    push(0x80 | 0x70 | sizeField);                 /* global table, 8-bit colour resolution */
+    push(0);                                       /* background colour index */
+    push(0);                                       /* pixel aspect ratio */
+    for (var i = 0; i < tableSize; i++) {
+      var c = pal[i] || [0, 0, 0];
+      push(c[0]); push(c[1]); push(c[2]);
+    }
+    if (o.loop !== false) {
+      push(0x21); push(0xFF); push(0x0B);
+      'NETSCAPE2.0'.split('').forEach(function (ch) { push(ch.charCodeAt(0)); });
+      push(0x03); push(0x01); push16(0); push(0x00);
+    }
+
+    var minCodeSize = Math.max(2, Math.ceil(Math.log2(tableSize)));
+    frames.forEach(function (f) {
+      var idx = mapToPalette(f, pal, false, 0);
+      if (transparent) {
+        for (var p = 0; p < idx.length; p++) {
+          if (f.data[p * 4 + 3] < 128) idx[p] = 0;
+        }
+      }
+      /* graphic control extension: delay + transparency */
+      push(0x21); push(0xF9); push(0x04);
+      push(((transparent ? 2 : 1) << 2) | (transparent ? 1 : 0));
+      push16(delay);
+      push(transparent ? 0 : 0);
+      push(0x00);
+      /* image descriptor */
+      push(0x2C); push16(0); push16(0); push16(w); push16(h); push(0x00);
+      push(minCodeSize);
+      gifBlocks(lzwEncode(idx, minCodeSize)).forEach(push);
+    });
+    push(0x3B);                                     /* trailer */
+    return {
+      bytes: new Uint8Array(bytes),
+      width: w, height: h, frames: frames.length,
+      note: frames.length + ' frames · ' + w + '×' + h + ' · ' + Math.round(delay * 10) + 'ms'
+    };
+  }
+
   /* ------------------------------------------------------------------ exports */
 
   return {
-    version: '1.1.0',
+    version: '1.2.0',
     clamp: clamp,
     hexToRgb: hexToRgb,
     rgbToHex: rgbToHex,
@@ -1808,6 +2220,18 @@
     overlay: overlay,
     tileStamp: tileStamp,
     /* Batch */
-    fitBox: fitBox
+    fitBox: fitBox,
+    /* Pixel */
+    pixelate: pixelate,
+    addOutline: addOutline,
+    medianCutRgb: medianCutRgb,
+    mapToPalette: mapToPalette,
+    /* Glow */
+    glow: glow,
+    /* Motion */
+    sliceSheet: sliceSheet,
+    buildSpriteSheet: buildSpriteSheet,
+    encodeGif: encodeGif,
+    lzwEncode: lzwEncode
   };
 });

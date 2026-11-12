@@ -4,7 +4,7 @@ A free, open-source pixel art **and text** editor that runs entirely in your bro
 
 **Live editor:** [galeoindus.github.io/pixelstudioedit](https://galeoindus.github.io/pixelstudioedit/)
 
-**Nirbhar toolkit:** fourteen offline tools inside the editor — background remover, photo enhancer, upscaler, PDF maker, icon pack, SVG export, generative art and more. No upload, no account, no model download. See the [manual](docs/NIRBHAR_MANUAL.md).
+**Nirbhar toolkit:** eighteen offline tools inside the editor — background remover, photo enhancer, upscaler, photo-to-pixel-art converter, neon glow, animated GIF maker, sprite-sheet slicer, PDF maker, icon pack, SVG export, generative art and more. No upload, no account, no model download. See the [manual](docs/NIRBHAR_MANUAL.md).
 
 ![Pixel Studio Edit screenshot](docs/preview.png)
 
@@ -114,7 +114,7 @@ The modes follow the job you picked on the start screen: *Create a design* and *
 
 ## Nirbhar — the offline toolkit
 
-**Nirbhar** (निर्भर, "self-reliant") is a panel of fourteen tools that do the jobs
+**Nirbhar** (निर्भर, "self-reliant") is a panel of eighteen tools that do the jobs
 people normally leave the browser for — remove a background, upscale a photo,
 make a PDF, build a favicon — and does them here, on your machine, with no
 upload, no account, no API key and no model download. Open it from the
@@ -198,7 +198,7 @@ fonts/              the twelve web fonts, self-hosted (no font CDN)
 tests/core.test.js  unit tests for js/core.js
 tests/nirbhar.test.js  unit tests for js/nirbhar.js
 tests/responsive.test.js  responsive layout, device profile and pointer gesture regression checks
-tests/manual.test.js  checks the English and Hindi manuals cover all fourteen tools
+tests/manual.test.js  checks the English and Hindi manuals cover all eighteen tools
 tests/ui.js         headless browser test: boots the app and drives every control
 manifest.json       PWA manifest (installable app)
 404.html            what GitHub Pages serves for a missing path — noindex, never crawled into the index
