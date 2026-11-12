@@ -191,7 +191,7 @@ markers, and translate the text between them. Nothing else has to change.
 3. सेटिंग्स तब तक बदलें जब तक प्रीव्यू सही न दिखने लगे; प्रीव्यू एक स्केल की गई कॉपी है, असली काम फुल साइज़ में होता है।
 4. Add as new layer दबाएं। आपकी ओरिजिनल लेयर बिल्कुल वैसी ही रहेगी, और रिज़ल्ट एक नया लेयर बन जाएगा जिसे आप एडिट करते रह सकते हैं।
 
-### तेरह टूल्स
+### चौदह टूल्स
 
 ### ✂ Nirbhar Cut — Background remover
 
@@ -261,9 +261,9 @@ markers, and translate the text between them. Nothing else has to change.
 
 ### ▥ Nirbhar Collage — Photo grid
 
+कई फ़ोटो को एक ही ग्रिड में सजाता है और हर तस्वीर को एक समान सेल में रखता है।
 
-
-**
+*फ़ोटो जोड़ें, कॉलम की संख्या, सेल का आकार और गैप चुनें। एक साफ़ और समान ग्रिड बनाने के लिए “Fill the cell” चुनें, या पूरी तस्वीर बिना काटे रखने के लिए “Whole photo” चुनें। परिणाम नए डॉक्यूमेंट के रूप में खुलेगा। वहाँ से आप इसे एक्सपोर्ट कर सकते हैं या Nirbhar Paper की मदद से PDF बना सकते हैं।*
 
 ### Ⓝ Nirbhar Seal — Watermark & stamp
 

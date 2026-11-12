@@ -104,3 +104,22 @@ test('IndexedDB recovery keeps the previous local autosave until the new write c
   assert.match(save, /tx\.oncomplete = function \(\) \{[\s\S]*?localStorage\.removeItem\(AUTOSAVE_KEY\)/);
   assert.doesNotMatch(save, /localStorage\.removeItem\(AUTOSAVE_KEY\);[\s\S]*?openRecoveryDb/);
 });
+
+
+test('runtime publishes phone, tablet and desktop profiles with orientation data', () => {
+  assert.match(app, /dataset\.deviceProfile = width <= 600 \? 'phone' : \(compact \? 'tablet' : 'desktop'\)/);
+  assert.match(app, /dataset\.orientation = width > height \? 'landscape' : 'portrait'/);
+  assert.match(app, /setProperty\('--device-width'/);
+  assert.match(app, /setProperty\('--device-height'/);
+  assert.match(css, /html\[data-device-profile="phone"\]/);
+  assert.match(css, /html\[data-device-profile="tablet"\]/);
+  assert.match(css, /html\[data-device-profile="desktop"\]/);
+});
+
+test('virtual keyboard inset is applied to the compact inspector sheet', () => {
+  assert.match(app, /setProperty\('--keyboard-inset'/);
+  assert.match(app, /addEventListener\('orientationchange'/);
+  assert.match(css, /margin-bottom:\s*var\(--keyboard-inset,\s*0px\)/);
+  assert.match(css, /--sheet-open-max/);
+  assert.match(css, /--sheet-peek-height/);
+});

@@ -2571,6 +2571,8 @@
         '<h4>3 · Objects</h4><p class="hint">Every text and shape stays editable. Select it to drag, resize with the corner handles, or rotate with the round handle. Flatten when you are done.</p>' +
         '<h4>4 · Photo &amp; pixel art</h4><p class="hint">The Photo tab resizes, crops, removes backgrounds and turns a photo into pixel art with a palette and dithering.</p>' +
         '<h4>5 · Export</h4><p class="hint">Export PNG (transparency), JPEG or WebP at 1×–20×. Projects save as JSON and reopen with layers and text intact.</p>' +
+        '<h4>6 · Phone &amp; tablet</h4><p class="hint">The bottom handle opens or closes the inspector. One finger draws; use two fingers to zoom and pan. Lift both fingers and tap again to resume drawing. Rotate the device when you need a wider workspace.</p>' +
+        '<h4>7 · Offline &amp; recovery</h4><p class="hint">After the first visit, install the app from your browser menu and reopen it offline. Projects autosave on this device; use Restore autosave if needed. The fourteen Nirbhar tools and the ten-language manual work locally. The optional AI background-removal beta needs a one-time model download (about 40 MB); your photo is still processed on this device and is never uploaded.</p>' +
         '<h4>Shortcuts</h4><div class="hint" style="line-height:1.9">' +
         '<b>B</b> pencil · <b>E</b> eraser · <b>G</b> fill · <b>I</b> eyedropper<br>' +
         '<b>L</b> line · <b>R</b> rectangle · <b>O</b> ellipse<br>' +
@@ -2856,13 +2858,33 @@
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', function (e) { if (e.code === 'Space') S.spaceDown = false; });
     function syncDeviceProfile() {
-      var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-      var compact = window.matchMedia && window.matchMedia('(max-width: 980px)').matches;
-      document.documentElement.dataset.inputMode = coarse ? 'coarse' : 'precise';
-      document.documentElement.dataset.layoutMode = compact ? 'compact' : 'desktop';
+      var root = document.documentElement;
+      var width = Math.max(1, Math.round(window.innerWidth || root.clientWidth || 1));
+      var height = Math.max(1, Math.round(window.innerHeight || root.clientHeight || 1));
+      var pointerQuery = window.matchMedia && window.matchMedia('(pointer: coarse)');
+      var coarse = pointerQuery ? pointerQuery.matches : !!(navigator.maxTouchPoints > 0);
+      var compact = window.matchMedia
+        ? window.matchMedia('(max-width: 980px)').matches
+        : width <= 980;
+      root.dataset.inputMode = coarse ? 'coarse' : 'precise';
+      root.dataset.layoutMode = compact ? 'compact' : 'desktop';
+      root.dataset.deviceProfile = width <= 600 ? 'phone' : (compact ? 'tablet' : 'desktop');
+      root.dataset.orientation = width > height ? 'landscape' : 'portrait';
+      root.style.setProperty('--device-width', width + 'px');
+      root.style.setProperty('--device-height', height + 'px');
+      root.style.setProperty('--device-dpr', String(Math.max(1, Math.min(3, window.devicePixelRatio || 1))));
     }
     syncDeviceProfile();
-    window.addEventListener('resize', function () { syncDeviceProfile(); fitZoom(); });
+    window.addEventListener('resize', function () { syncDeviceProfile(); syncViewport(); fitZoom(); });
+    var pointerProfileQuery = window.matchMedia && window.matchMedia('(pointer: coarse)');
+    if (pointerProfileQuery) {
+      var refreshPointerProfile = function () { syncDeviceProfile(); fitZoom(); };
+      if (typeof pointerProfileQuery.addEventListener === 'function') {
+        pointerProfileQuery.addEventListener('change', refreshPointerProfile);
+      } else if (typeof pointerProfileQuery.addListener === 'function') {
+        pointerProfileQuery.addListener(refreshPointerProfile);
+      }
+    }
     if (typeof ResizeObserver !== 'undefined') {
       var resizeObserver = new ResizeObserver(function () { fitZoom(); });
       resizeObserver.observe(stageWrap);
@@ -2874,12 +2896,23 @@
       if (window.visualViewport) {
         kb = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
       }
-      document.documentElement.style.setProperty('--kb', Math.round(kb) + 'px');
+      var root = document.documentElement;
+      root.style.setProperty('--keyboard-inset', Math.round(kb) + 'px');
+      root.dataset.keyboardOpen = kb > 120 ? 'true' : 'false';
     }
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', function () { syncViewport(); fitZoom(); });
+      window.visualViewport.addEventListener('resize', function () {
+        syncDeviceProfile();
+        syncViewport();
+        fitZoom();
+      });
       window.visualViewport.addEventListener('scroll', syncViewport);
     }
+    window.addEventListener('orientationchange', function () {
+      syncDeviceProfile();
+      syncViewport();
+      fitZoom();
+    });
     syncViewport();
     on('sheet-grab', 'click', function () {
       var side = byId('side');

@@ -21,7 +21,7 @@ Everything is organised around one canvas:
 - **Left rail** — eleven named tools (Pen, Erase, Fill, Pick, Line, Rect, Oval, Select, Crop, Text, Pan), each with its keyboard shortcut. The colour chip at the bottom swaps primary/secondary.
 - **Quick bar** — brush size, opacity, mirror X/Y, the pixel grid, a **pixel-art mode** toggle and the transparency grid, always within reach while drawing.
 - **Right panel** (fixed beside the canvas on desktop; an expandable bottom sheet on phones and compact tablets) — seven tabs: **Text, Sticker, Photo, Colour, Layers, FX, 3D**. One panel at a time, so nothing is buried in a collapsed accordion.
-- **Adaptive workspace** — desktop keeps the tool rail, canvas and inspector side by side; compact screens move the inspector into a scrollable bottom sheet while keeping the canvas reachable. Touch, mouse, pen and keyboard input share the same tools.
+- **Adaptive workspace** — phone, tablet and desktop profiles tune the tool rail, inspector sheet and control spacing to the available viewport. The inspector stays above the on-screen keyboard, respects safe-area insets and adapts after rotation or a pointer-device change. Touch controls keep comfortable hit targets, while mouse, pen and keyboard input continue to share the same tools.
 - **Save status** in the top bar tells you whether the project is saved, unsaved or autosaved.
 - **Canvas chip** in the top bar — size, resize, flip and rotate. A new document opens at a design-sized artboard (1080 px), and **New document** offers banner and social templates (Instagram 1080, Story 1080×1920, YouTube 1280×720, Banner 1500×500, Meme 800×600, Poster 1080×1350).
 - **Full-screen canvas** — the ⛶ button hides every panel for distraction-free drawing (and asks the browser for real full screen).
@@ -197,6 +197,8 @@ js/app.js           editor: tools, layers, text styling, stickers, history, file
 fonts/              the twelve web fonts, self-hosted (no font CDN)
 tests/core.test.js  unit tests for js/core.js
 tests/nirbhar.test.js  unit tests for js/nirbhar.js
+tests/responsive.test.js  responsive layout, device profile and pointer gesture regression checks
+tests/manual.test.js  checks the English and Hindi manuals cover all fourteen tools
 tests/ui.js         headless browser test: boots the app and drives every control
 manifest.json       PWA manifest (installable app)
 404.html            what GitHub Pages serves for a missing path — noindex, never crawled into the index
