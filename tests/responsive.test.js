@@ -151,3 +151,34 @@ test('the app height has a vh fallback before dvh', () => {
      which left .app with no height at all. */
   assert.match(css, /height:\s*100vh;\s*\n\s*height:\s*100dvh;/);
 });
+
+/* The import path must scale a photo as a whole. Clamping width and height to
+ * a maximum independently is what made every large photo arrive squashed —
+ * see the fitWithin cases in tests/core.test.js for the measurements. */
+test('photo import scales both sides by one factor', () => {
+  assert.match(app, /function fitWithin\(w, h, maxSide, maxPixels\)/);
+  assert.match(app, /fitWithin\(im\.width, im\.height, MAX_DOC_SIDE, importPixelBudget\(\)\)/);
+  assert.match(app, /drawScaled\(layer\.ctx, im, docW, docH\)/);
+  /* the old shape of the bug, which must not return */
+  assert.doesNotMatch(app, /Math\.min\(2048, Math\.round\(im\.(width|height) \* scale\)\)/);
+  assert.doesNotMatch(app, /Math\.min\(2048, Math\.round\(S\.w \* factor\)\)/);
+});
+
+test('an imported image is never blown up past 100%', () => {
+  assert.match(app, /var sc = Math\.min\(1, S\.w \/ im\.width, S\.h \/ im\.height\)/);
+});
+
+test('the checkerboard is not repainted on every pointer move', () => {
+  /* render() runs on every pointermove; the background only depends on the
+     stage size, the zoom and two toggles, so it is painted per signature. */
+  assert.match(app, /var bgSig = ''/);
+  assert.match(app, /if \(sig !== bgSig\) \{/);
+  const start = app.indexOf('function render()');
+  const body = app.slice(start, start + 4000);
+  assert.ok(body.indexOf('bgSig') > -1, 'render consults the signature');
+});
+
+test('a stroke draws with the cheap filter and the resting frame with the sharp one', () => {
+  assert.match(app, /var moving = !!\(S\.strokeActive \|\| S\.drag \|\| S\.panning \|\| S\.preview\)/);
+  assert.match(app, /imageSmoothingQuality = \(moving && drawRatio < 0\.9\) \? 'low' : 'high'/);
+});

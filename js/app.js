@@ -10,6 +10,10 @@
   var byId = function (id) { return document.getElementById(id); };
 
   var MAX_BACKING = 12e6;
+
+  /* The largest document side the editor will hold. A bigger photo is scaled
+     down as a whole; it is never squashed in one direction. */
+  var MAX_DOC_SIDE = 4096;
   var AUTOSAVE_KEY = 'pixelstudioedit.autosave.v3';
   var RECOVERY_DB = 'pixelstudioedit-recovery';
   var BLEND_MODES = {
@@ -74,6 +78,10 @@
 
   var screen, screenCtx, stage, stageWrap;
   var bgCanvas, bgCtx, overlayCanvas, overlayCtx;
+  /* Signature of the last background painted. The checkerboard and grid only
+     depend on the canvas size, the zoom and two toggles, so repainting them on
+     every pointer move was pure waste — see render(). */
+  var bgSig = '';
   var maskTmp = document.createElement('canvas');
   var compCv = document.createElement('canvas');
   var compCtx = compCv.getContext('2d');
@@ -136,6 +144,57 @@
     var c = cv.getContext('2d');
     c.imageSmoothingEnabled = false;
     return cv;
+  }
+
+  /* How many pixels an imported photo may become. A 12 MP phone photo
+     (4032×3024) fits the desktop budget and arrives at its own resolution; a
+     phone gets half, because every layer costs W×H×4 bytes and the history
+     keeps several copies of it. */
+  function importPixelBudget() {
+    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    return coarse ? 8e6 : 16e6;
+  }
+
+  /* One scale for both sides — this is the whole point of the function.
+     Import used to clamp width and height to 2048 independently, so a
+     4000×3000 photo became 2048×1775 (13.5% squashed), a 6000×2000 panorama
+     42% squashed and a 1000×4000 tall photo 95% squashed. Rounding is applied
+     once, to the already-scaled size, so the aspect ratio survives. */
+  function fitWithin(w, h, maxSide, maxPixels) {
+    /* the maths lives in js/core.js so it can be unit-tested without a DOM */
+    return C.fitWithin(w, h, maxSide, maxPixels);
+  }
+
+  /* Draws src into ctx at dw×dh. One drawImage with a big reduction samples
+     too few source pixels and aliases, so halve in steps first and only then
+     make the final draw. */
+  function drawScaled(ctx, src, dw, dh) {
+    /* naturalWidth first: an <img> that is not in the document reports its
+       layout width, which is 0 before it is styled, while a canvas has no
+       naturalWidth at all and falls back to width */
+    var cw = src.naturalWidth || src.width;
+    var ch = src.naturalHeight || src.height;
+    var cur = src;
+    if (dw >= cw || dh >= ch) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(src, 0, 0, dw, dh);
+      return;
+    }
+    while (cw > dw * 2 && ch > dh * 2) {
+      var nw = Math.max(dw, Math.round(cw / 2));
+      var nh = Math.max(dh, Math.round(ch / 2));
+      var tmp = document.createElement('canvas');
+      tmp.width = nw; tmp.height = nh;
+      var tctx = tmp.getContext('2d');
+      tctx.imageSmoothingEnabled = true;
+      tctx.imageSmoothingQuality = 'high';
+      tctx.drawImage(cur, 0, 0, cw, ch, 0, 0, nw, nh);
+      cur = tmp; cw = nw; ch = nh;
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(cur, 0, 0, cw, ch, 0, 0, dw, dh);
   }
 
   /* ------------------------------------------------------------------ layers */
@@ -468,21 +527,31 @@
     stage.style.width = W + 'px';
     stage.style.height = H + 'px';
 
-    /* --- layer 1: background, checkerboard and grid (only on viewport change) */
-    bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    bgCtx.imageSmoothingEnabled = false;
-    bgCtx.clearRect(0, 0, W, H);
-    if (S.showChecker) drawChecker(bgCtx, W, H);
-    else { bgCtx.fillStyle = '#ffffff'; bgCtx.fillRect(0, 0, W, H); }
-    if (S.showGrid && z >= 8) {
-      bgCtx.save();
-      bgCtx.strokeStyle = 'rgba(20,24,32,0.16)';
-      bgCtx.lineWidth = 1;
-      bgCtx.beginPath();
-      for (var gx = 1; gx < S.w; gx++) { bgCtx.moveTo(gx * z + 0.5, 0); bgCtx.lineTo(gx * z + 0.5, H); }
-      for (var gy = 1; gy < S.h; gy++) { bgCtx.moveTo(0, gy * z + 0.5); bgCtx.lineTo(W, gy * z + 0.5); }
-      bgCtx.stroke();
-      bgCtx.restore();
+    /* --- layer 1: background, checkerboard and grid -------------------------
+     * This used to run on every render, which is every pointer move. The
+     * checkerboard alone is one fillRect per 16px square, so on a 2867×2150
+     * stage it was ~24,000 fillRects per frame — the reason a full-resolution
+     * photo felt like it was dragging. Nothing here depends on the artwork,
+     * only on the stage size, the zoom and two toggles, so it is painted once
+     * per signature and then left alone. */
+    var sig = [bw, bh, dpr, S.showChecker ? 1 : 0, S.showGrid ? 1 : 0, S.w, S.h, z.toFixed(3)].join('|');
+    if (sig !== bgSig) {
+      bgSig = sig;
+      bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      bgCtx.imageSmoothingEnabled = false;
+      bgCtx.clearRect(0, 0, W, H);
+      if (S.showChecker) drawChecker(bgCtx, W, H);
+      else { bgCtx.fillStyle = '#ffffff'; bgCtx.fillRect(0, 0, W, H); }
+      if (S.showGrid && z >= 8) {
+        bgCtx.save();
+        bgCtx.strokeStyle = 'rgba(20,24,32,0.16)';
+        bgCtx.lineWidth = 1;
+        bgCtx.beginPath();
+        for (var gx = 1; gx < S.w; gx++) { bgCtx.moveTo(gx * z + 0.5, 0); bgCtx.lineTo(gx * z + 0.5, H); }
+        for (var gy = 1; gy < S.h; gy++) { bgCtx.moveTo(0, gy * z + 0.5); bgCtx.lineTo(W, gy * z + 0.5); }
+        bgCtx.stroke();
+        bgCtx.restore();
+      }
     }
 
     /* --- layer 2: document content ------------------------------------------ */
@@ -490,7 +559,14 @@
     screenCtx.clearRect(0, 0, W, H);
     /* zoomed out → smooth preview; 100% or more → crisp pixels */
     screenCtx.imageSmoothingEnabled = !S.crisp || z < 1;
-    screenCtx.imageSmoothingQuality = 'high';
+    /* Downscaling a 12 MP composite to the stage costs ~195ms a frame with the
+       'high' filter and ~43ms with 'low'; at these ratios the two are visually
+       indistinguishable. So a stroke or pan gets the cheap filter to stay
+       responsive, and the frame drawn when the gesture ends gets the sharp one,
+       which is the picture the user actually looks at. */
+    var drawRatio = W / Math.max(1, S.w);
+    var moving = !!(S.strokeActive || S.drag || S.panning || S.preview);
+    screenCtx.imageSmoothingQuality = (moving && drawRatio < 0.9) ? 'low' : 'high';
     screenCtx.drawImage(composite(), 0, 0, W, H);
 
     if (S.strokeActive && strokeCv.width === S.w && strokeCv.height === S.h) {
@@ -1288,8 +1364,8 @@
   }
 
   function resizeDoc(nw, nh) {
-    nw = Math.max(1, Math.min(2048, Math.round(nw || S.w)));
-    nh = Math.max(1, Math.min(2048, Math.round(nh || S.h)));
+    nw = Math.max(1, Math.min(MAX_DOC_SIDE, Math.round(nw || S.w)));
+    nh = Math.max(1, Math.min(MAX_DOC_SIDE, Math.round(nh || S.h)));
     S.layers.forEach(function (l) {
       var cv = offscreen(nw, nh);
       cv.getContext('2d').drawImage(l.canvas, 0, 0, S.w, S.h, 0, 0, nw, nh);
@@ -1996,10 +2072,13 @@
   }
 
   function scaleImage(factor) {
-    var nw = Math.max(1, Math.min(1024, Math.round(S.w * factor)));
-    var nh = Math.max(1, Math.min(1024, Math.round(S.h * factor)));
-    resizeDoc(nw, nh);
-    toast('Scaled to ' + nw + '×' + nh);
+    /* scale both sides by the same factor, then cap the result as a whole —
+       clamping each side on its own is what distorts the picture */
+    var nw = Math.max(1, Math.round(S.w * factor));
+    var nh = Math.max(1, Math.round(S.h * factor));
+    var fit = fitWithin(nw, nh, MAX_DOC_SIDE, 16e6);
+    resizeDoc(Math.max(1, Math.round(nw * fit.scale)), Math.max(1, Math.round(nh * fit.scale)));
+    toast('Scaled to ' + S.w + '×' + S.h);
   }
 
   function cropToSelection() {
@@ -2341,20 +2420,15 @@
       layer.ctx.imageSmoothingEnabled = false;
 
       if (mode === 'photo' || mode === 'pixel') {
-        /* fit the photo into a sane memory budget, keeping its aspect ratio */
-        var maxPixels = 4.2e6;
-        var scale = 1;
-        if (im.width * im.height > maxPixels) scale = Math.sqrt(maxPixels / (im.width * im.height));
-        var docW = Math.max(1, Math.min(2048, Math.round(im.width * scale)));
-        var docH = Math.max(1, Math.min(2048, Math.round(im.height * scale)));
+        /* the photo decides the document size, scaled as a whole so the shape
+           it was shot in is the shape you edit */
+        var fit = fitWithin(im.width, im.height, MAX_DOC_SIDE, importPixelBudget());
+        var docW = fit.w, docH = fit.h;
 
         newDoc(docW, docH);
         layer = S.layers[0];
         layer.name = name;
-        /* smooth only when the photo had to be downscaled — 1:1 stays untouched */
-        layer.ctx.imageSmoothingEnabled = scale < 1;
-        layer.ctx.imageSmoothingQuality = 'high';
-        layer.ctx.drawImage(im, 0, 0, docW, docH);
+        drawScaled(layer.ctx, im, docW, docH);
         layer.ctx.imageSmoothingEnabled = false;
 
         /* pixel art is viewed crisp; a photo is edited smooth */
@@ -2366,12 +2440,16 @@
         if (mode === 'pixel') {
           setTimeout(function () { pixelize(false); }, 60);
           toast('Pixel art ready — tune Block and palette in the Photo tab');
+        } else if (fit.scale < 1) {
+          toast('Photo ' + im.width + '×' + im.height + ' → ' + S.w + '×' + S.h);
         } else {
-          toast('Photo opened at ' + S.w + '×' + S.h);
+          toast('Photo opened at its own size, ' + S.w + '×' + S.h);
         }
       } else {
-        /* no mode chosen: place the image inside the current canvas */
-        var sc = Math.min(S.w / im.width, S.h / im.height);
+        /* No mode chosen: place the image inside the current canvas. Never
+           above 100% — a small logo used to be blown up to fill a 1024 canvas
+           and arrive blurry, which is the opposite of importing a file. */
+        var sc = Math.min(1, S.w / im.width, S.h / im.height);
         var dw = Math.max(1, Math.round(im.width * sc));
         var dh = Math.max(1, Math.round(im.height * sc));
         layer.ctx.imageSmoothingEnabled = sc < 1;
@@ -2842,6 +2920,9 @@
     on('file-import', 'change', function (e) {
       var f = e.target.files[0];
       if (f) importImage(f);
+      /* Cancelling the picker must not leave a mode armed: the next import from
+         the menu would otherwise silently replace the whole document. */
+      else S.importMode = null;
       e.target.value = '';
     });
     on('file-open', 'change', function (e) {
@@ -3106,14 +3187,14 @@
     /* a fresh design is a design-sized canvas, not a 64×64 sprite */
     var dw = Math.max(1080, S.w), dh = Math.max(1080, S.h);
     modal('New document',
-      '<div class="row"><label>Width</label><input type="number" id="dlg-w" min="1" max="2048" value="' + dw + '"></div>' +
-      '<div class="row"><label>Height</label><input type="number" id="dlg-h" min="1" max="2048" value="' + dh + '"></div>' +
+      '<div class="row"><label>Width</label><input type="number" id="dlg-w" min="1" max="' + MAX_DOC_SIDE + '" value="' + dw + '"></div>' +
+      '<div class="row"><label>Height</label><input type="number" id="dlg-h" min="1" max="' + MAX_DOC_SIDE + '" value="' + dh + '"></div>' +
       '<div class="presets-row" id="dlg-presets">' +
       TEMPLATES.map(function (t, i) { return '<button class="btn" data-t="' + i + '">' + t.label + '</button>'; }).join('') +
       '</div><p class="hint">Pick a template for banners and social posts, or type your own size.</p>',
       function (ov) {
-        var w = Math.max(1, Math.min(2048, +$('#dlg-w', ov).value || 64));
-        var h = Math.max(1, Math.min(2048, +$('#dlg-h', ov).value || 64));
+        var w = Math.max(1, Math.min(MAX_DOC_SIDE, +$('#dlg-w', ov).value || 64));
+        var h = Math.max(1, Math.min(MAX_DOC_SIDE, +$('#dlg-h', ov).value || 64));
         newDoc(w, h);
         toast('New ' + w + '×' + h + ' document');
       }, 'Create');
@@ -3129,8 +3210,8 @@
 
   function canvasDialog() {
     modal('Canvas',
-      '<div class="row"><label>Width</label><input type="number" id="dlg-w" min="1" max="1024" value="' + S.w + '"></div>' +
-      '<div class="row"><label>Height</label><input type="number" id="dlg-h" min="1" max="1024" value="' + S.h + '"></div>' +
+      '<div class="row"><label>Width</label><input type="number" id="dlg-w" min="1" max="' + MAX_DOC_SIDE + '" value="' + S.w + '"></div>' +
+      '<div class="row"><label>Height</label><input type="number" id="dlg-h" min="1" max="' + MAX_DOC_SIDE + '" value="' + S.h + '"></div>' +
       '<div class="presets-row" id="dlg-presets">' +
       [16, 32, 48, 64, 128, 256, 512].map(function (v) { return '<button class="btn" data-p="' + v + '">' + v + '²</button>'; }).join('') +
       '</div>' +
@@ -3138,8 +3219,8 @@
       '<button class="btn" id="dlg-rot-cw">Rotate ⟳</button><button class="btn" id="dlg-rot-ccw">Rotate ⟲</button></div>' +
       '<p class="hint">Resize scales every layer with nearest-neighbour sampling.</p>',
       function (ov) {
-        var w = Math.max(1, Math.min(2048, +$('#dlg-w', ov).value || S.w));
-        var h = Math.max(1, Math.min(2048, +$('#dlg-h', ov).value || S.h));
+        var w = Math.max(1, Math.min(MAX_DOC_SIDE, +$('#dlg-w', ov).value || S.w));
+        var h = Math.max(1, Math.min(MAX_DOC_SIDE, +$('#dlg-h', ov).value || S.h));
         resizeDoc(w, h);
         toast('Canvas ' + S.w + '×' + S.h);
       }, 'Resize');

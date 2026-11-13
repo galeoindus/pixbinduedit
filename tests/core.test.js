@@ -104,5 +104,40 @@ safe('blur tolerates read-only ImageData', i => C.blur(i, 2));
 safe('extrude tolerates read-only ImageData', i => C.extrude(i, 1, 1, 3, [0,0,0], [255,255,255]));
 safe('perspective tolerates read-only ImageData', i => C.perspective(i, { rotateY: 20 }));
 
+
+/* ------------------------------------------------------------ fitWithin
+ * The import path used to clamp width and height to a maximum independently,
+ * which silently changed the shape of every large photo: 4000×3000 arrived as
+ * 2048×1775 (13.5% squashed), 6000×2000 as 2048×1183 (42%) and 1000×4000 as
+ * 1000×2048 (95%). These are the shapes that were wrong.
+ */
+const aspectOk = (w, h, maxSide, maxPixels) => {
+  const f = C.fitWithin(w, h, maxSide, maxPixels);
+  const src = w / h;
+  const out = f.w / f.h;
+  return Math.abs(out - src) / src < 0.01;
+};
+ok('fitWithin keeps a 4:3 photo', aspectOk(4000, 3000, 4096, 16e6));
+ok('fitWithin keeps a 3:4 portrait', aspectOk(3000, 4000, 4096, 16e6));
+ok('fitWithin keeps a 3:1 panorama', aspectOk(6000, 2000, 4096, 16e6));
+ok('fitWithin keeps a 1:4 tall photo', aspectOk(1000, 4000, 4096, 16e6));
+ok('fitWithin keeps an extreme 20:1 banner', aspectOk(20000, 1000, 4096, 16e6));
+ok('fitWithin keeps the shape on the phone budget', aspectOk(4000, 3000, 4096, 8e6));
+
+const smallFit = C.fitWithin(800, 600, 4096, 16e6);
+ok('fitWithin never upscales', smallFit.scale === 1 && smallFit.w === 800 && smallFit.h === 600,
+  JSON.stringify(smallFit));
+
+const bigFit = C.fitWithin(9000, 6000, 4096, 16e6);
+ok('fitWithin caps the longest side', Math.max(bigFit.w, bigFit.h) <= 4096, JSON.stringify(bigFit));
+ok('fitWithin respects the pixel budget', bigFit.w * bigFit.h <= 16e6 + 1, bigFit.w * bigFit.h);
+
+const phoneFit = C.fitWithin(4000, 3000, 4096, 8e6);
+ok('fitWithin respects the tighter phone budget', phoneFit.w * phoneFit.h <= 8e6 + 1, phoneFit.w * phoneFit.h);
+
+const twelve = C.fitWithin(4032, 3024, 4096, 16e6);
+ok('a 12 MP phone photo keeps its own resolution',
+  twelve.scale === 1 && twelve.w === 4032 && twelve.h === 3024, JSON.stringify(twelve));
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL CORE TESTS PASSED');
 process.exit(fails?1:0);

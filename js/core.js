@@ -638,6 +638,28 @@
     return out;
   }
 
+  /* Fits w×h inside a box, scaling BOTH sides by one factor.
+   *
+   * This exists because the import path used to clamp width and height to a
+   * maximum independently, which changes the shape of the picture: a 4000×3000
+   * photo came out 2048×1775 (13.5% squashed), a 6000×2000 panorama 42%
+   * squashed and a 1000×4000 tall photo 95% squashed. Rounding is applied once,
+   * to the already-scaled size, so the aspect ratio survives the trip.
+   *
+   * maxSide   — longest side allowed, or 0 for no limit
+   * maxPixels — total pixels allowed, or 0 for no limit
+   * Returns { scale, w, h }; scale is never above 1, so nothing is upscaled.
+   */
+  function fitWithin(w, h, maxSide, maxPixels) {
+    w = Math.max(1, Math.round(w || 0));
+    h = Math.max(1, Math.round(h || 0));
+    var s = 1;
+    if (maxSide) s = Math.min(s, maxSide / Math.max(w, h));
+    if (maxPixels) s = Math.min(s, Math.sqrt(maxPixels / (w * h)));
+    s = Math.max(0.01, Math.min(1, s));
+    return { scale: s, w: Math.max(1, Math.round(w * s)), h: Math.max(1, Math.round(h * s)) };
+  }
+
   var api = {
     clamp: clamp,
     extrude: extrude,
@@ -681,7 +703,8 @@
     ditherBayer: ditherBayer,
     floodFill: floodFill,
     replaceColor: replaceColor,
-    mulberry32: mulberry32
+    mulberry32: mulberry32,
+    fitWithin: fitWithin
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
