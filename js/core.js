@@ -689,48 +689,33 @@
     return !(f === 'image/png' || f === 'image/webp');
   }
 
-  /* The largest whole-number export scale that fits, never above the one asked
-     for. Returns { ok, scale, w, h, area, clamped } - ok is false only when not
-     even 1x can be encoded, in which case nothing should be drawn at all. */
-  function fitExport(w, h, scale) {
-    w = Math.max(1, Math.round(w || 0));
-    h = Math.max(1, Math.round(h || 0));
-    var want = Math.max(1, Math.round(scale || 1));
-    var fits = function (s) {
-      return w * s <= EXPORT_MAX_SIDE && h * s <= EXPORT_MAX_SIDE && w * s * h * s <= EXPORT_MAX_AREA;
-    };
-    var build = function (s, clamped) {
-      return { ok: true, scale: s, w: w * s, h: h * s, area: w * h * s * s, clamped: clamped };
-    };
-    if (fits(want)) return build(want, false);
-    for (var s = want - 1; s >= 1; s--) if (fits(s)) return build(s, true);
-    return { ok: false, scale: 1, w: w, h: h, area: w * h, clamped: true };
+  /* How long a side each format can hold.
+   *
+   * WebP stores width and height in 14 bits, so no side can pass 16,383 px.
+   * Chromium does not refuse a larger canvas: it encodes the WebP anyway and
+   * crops it. Measured here, a 17280x1728 canvas asked for image/webp came back
+   * 16383x1728 with the right-hand marker pixels gone, while the same canvas as
+   * image/jpeg and image/png kept all 17280. JPEG encoders stop at 65,500.
+   */
+  function exportSideLimit(format) {
+    var f = String(format || 'image/png').toLowerCase();
+    if (f === 'image/webp') return 16383;
+    if (f === 'image/jpeg' || f === 'image/jpg') return 65500;
+    return EXPORT_MAX_SIDE;
   }
 
-  /* How big a canvas the browser will actually encode.
-   *
-   * Chrome documents a maximum canvas area of 268,435,456 px (2^28) and a
-   * maximum side of 65,535 px; other engines are stricter, never looser. Past
-   * that limit `canvas.toBlob()` does not throw — it calls back with null. The
-   * export dialog offered 16x and 20x for a 1080 px artboard, so 17280x17280
-   * and 21600x21600 were on the menu and both came back null: the Download
-   * button produced no file and no message. Measured in Chromium, 10800x10800
-   * (116.6 MP) encodes a 2.2 MB PNG and 17280x17280 (298.6 MP) returns null,
-   * so the budget below is half the documented ceiling: still far past any
-   * real export, and with room for the encoder's own buffers.
-   */
-  var EXPORT_MAX_AREA = 134217728;   /* 128 MP, half of Chrome's 2^28 */
-  var EXPORT_MAX_SIDE = 32767;       /* half of Chrome's 65,535 */
-
   /* The largest whole-number export scale that fits, never above the one asked
-     for. Returns { ok, scale, w, h, area, clamped } — ok is false only when not
-     even 1x can be encoded, in which case nothing should be drawn at all. */
-  function fitExport(w, h, scale) {
+     for. maxSide defaults to the canvas budget; pass exportSideLimit(format) so
+     a WebP export is clamped to a width its own format can store.
+     Returns { ok, scale, w, h, area, clamped } - ok is false only when not even
+     1x can be encoded, in which case nothing should be drawn at all. */
+  function fitExport(w, h, scale, maxSide) {
     w = Math.max(1, Math.round(w || 0));
     h = Math.max(1, Math.round(h || 0));
     var want = Math.max(1, Math.round(scale || 1));
+    var side = Math.max(1, Math.min(EXPORT_MAX_SIDE, Math.round(maxSide || EXPORT_MAX_SIDE)));
     var fits = function (s) {
-      return w * s <= EXPORT_MAX_SIDE && h * s <= EXPORT_MAX_SIDE && w * s * h * s <= EXPORT_MAX_AREA;
+      return w * s <= side && h * s <= side && w * s * h * s <= EXPORT_MAX_AREA;
     };
     var build = function (s, clamped) {
       return { ok: true, scale: s, w: w * s, h: h * s, area: w * h * s * s, clamped: clamped };
@@ -751,7 +736,7 @@
     autoKey: autoKey,
     fitExport: fitExport,
     exportNeedsMatte: exportNeedsMatte,
-    fitExport: fitExport,
+    exportSideLimit: exportSideLimit,
     resample: resample,
     stripes: stripes,
     chromaKey: chromaKey,

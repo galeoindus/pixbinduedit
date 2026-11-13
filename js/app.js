@@ -2393,13 +2393,13 @@
        old code went on to saveBlob(null) — createObjectURL threw inside the
        callback and the Download button produced nothing at all. Clamp to a
        scale that can be encoded, and say so when the size had to change. */
-    var plan = C.fitExport(S.w, S.h, scale);
+    var plan = C.fitExport(S.w, S.h, scale, C.exportSideLimit(format));
     if (!plan.ok) {
       toast('Too large to export — ' + S.w + '×' + S.h + ' is past what this browser can encode');
       return;
     }
     if (plan.clamped) {
-      toast('This browser cannot encode ' + (S.w * scale) + '×' + (S.h * scale) + ' — exporting at ' + plan.scale + '×');
+      toast('That format stops at ' + C.exportSideLimit(format) + ' px a side — exporting at ' + plan.scale + '×, ' + plan.w + '×' + plan.h);
     }
     var cv = document.createElement('canvas');
     cv.width = plan.w; cv.height = plan.h;
@@ -3353,22 +3353,31 @@
     toast('SVG exported — editable text and shapes are preserved');
   }
 
+  /* The scale list depends on the format: WebP cannot store a side past 16,383
+     px, so 16x of a 1500 px banner is a real choice for PNG and a crop for WebP.
+     Rebuilt whenever the format changes. */
+  function scaleOptions(format) {
+    return [1, 2, 4, 8, 10, 16, 20].map(function (s) {
+      var plan = C.fitExport(S.w, S.h, s, C.exportSideLimit(format));
+      var label = s + '× (' + (S.w * s) + '×' + (S.h * s) + ')';
+      /* An option this format cannot hold as asked is offered as disabled
+         rather than silently producing a cropped, smaller or missing file.
+         fitExport reports a clamped scale as ok, so test clamped too. */
+      if (!plan.ok) return '<option value="' + s + '" disabled>' + label + ' — too large</option>';
+      if (plan.clamped) return '<option value="' + s + '" disabled>' + label + ' — max ' + plan.scale + '×</option>';
+      return '<option value="' + s + '"' + (s === 1 ? ' selected' : '') + '>' + label + '</option>';
+    }).join('');
+  }
+
   function exportDialog() {
     modal('Export image',
       '<div class="row"><label>Format</label><select id="dlg-format">' +
       '<option value="image/png">PNG — keeps transparency</option>' +
       '<option value="image/jpeg">JPEG — smaller, no transparency</option>' +
-      '<option value="image/webp">WebP — smallest</option>' +
+      '<option value="image/webp">WebP — smallest, keeps transparency</option>' +
       '</select></div>' +
       '<div class="row"><label>Scale</label><select id="dlg-scale">' +
-      [1, 2, 4, 8, 10, 16, 20].map(function (s) {
-        /* An option the browser cannot encode is offered as disabled rather
-           than silently producing nothing when it is picked. */
-        var plan = C.fitExport(S.w, S.h, s);
-        var label = s + '× (' + (S.w * s) + '×' + (S.h * s) + ')';
-        if (!plan.ok) return '<option value="' + s + '" disabled>' + label + ' — too large</option>';
-        return '<option value="' + s + '"' + (s === 1 ? ' selected' : '') + '>' + label + '</option>';
-      }).join('') + '</select></div>' +
+      scaleOptions('image/png') + '</select></div>' +
       '<div class="row"><label>Quality</label><input type="range" id="dlg-quality" min="40" max="100" value="92"><b id="dlg-quality-val">92</b></div>' +
       '<div class="row"><label>Name</label><input type="text" id="dlg-name" value="pixelstudioedit"></div>' +
       '<p class="hint">Nearest-neighbour scaling keeps pixels sharp. Quality applies to JPEG and WebP.</p>',
@@ -3382,6 +3391,16 @@
       }, 'Download');
     var q = byId('dlg-quality');
     if (q) q.addEventListener('input', function () { byId('dlg-quality-val').textContent = q.value; });
+    var fmtSel = byId('dlg-format'), scaleSel = byId('dlg-scale');
+    if (fmtSel && scaleSel) {
+      fmtSel.addEventListener('change', function () {
+        var keep = +scaleSel.value || 1;
+        scaleSel.innerHTML = scaleOptions(fmtSel.value);
+        var opts = Array.prototype.slice.call(scaleSel.options).filter(function (o) { return !o.disabled; });
+        var pick = opts.filter(function (o) { return +o.value === keep; })[0] || opts[opts.length - 1];
+        if (pick) scaleSel.value = pick.value;
+      });
+    }
   }
 
   /* ---------------------------------------------------------------- keyboard */

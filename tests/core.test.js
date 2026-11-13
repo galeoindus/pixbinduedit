@@ -184,5 +184,38 @@ ok('exportNeedsMatte: the default format keeps transparency', C.exportNeedsMatte
 ok('exportNeedsMatte: JPEG needs a matte', C.exportNeedsMatte('image/jpeg') === true);
 ok('exportNeedsMatte: the image/jpg alias needs a matte', C.exportNeedsMatte('image/jpg') === true);
 
+/* --------------------------------------------------------- exportSideLimit
+ * WebP stores each dimension in 14 bits, so a side past 16,383 px is cropped by
+ * the encoder instead of refused. Measured in Chromium: a 17280x1728 canvas
+ * asked for image/webp came back 16383x1728 with the right-hand marker pixels
+ * missing, while image/jpeg and image/png kept all 17280.
+ */
+ok('exportSideLimit: WebP stops at 16383', C.exportSideLimit('image/webp') === 16383);
+ok('exportSideLimit: PNG uses the canvas budget', C.exportSideLimit('image/png') === 32767);
+ok('exportSideLimit: JPEG has room past 16383', C.exportSideLimit('image/jpeg') > 16383);
+ok('exportSideLimit: the default format is not the WebP limit', C.exportSideLimit(undefined) === 32767);
+
+const bannerPng = C.fitExport(1500, 500, 8, C.exportSideLimit('image/png'));
+ok('a 1500px banner still exports 8x as PNG',
+  bannerPng.ok && bannerPng.scale === 8 && bannerPng.w === 12000 && bannerPng.clamped === false,
+  JSON.stringify(bannerPng));
+/* 13x of this banner is 19500 px wide: inside the PNG canvas budget, past what
+   WebP can store, so the two formats must clamp to different scales. */
+const bannerPng16 = C.fitExport(1500, 500, 16, C.exportSideLimit('image/png'));
+ok('a 16x banner is clamped by the canvas area budget for PNG',
+  bannerPng16.ok && bannerPng16.scale === 13, JSON.stringify(bannerPng16));
+const bannerWebp = C.fitExport(1500, 500, 16, C.exportSideLimit('image/webp'));
+ok('the same banner is clamped for WebP instead of being cropped',
+  bannerWebp.ok && bannerWebp.clamped === true && bannerWebp.scale < bannerPng16.scale &&
+  bannerWebp.w <= 16383, JSON.stringify(bannerWebp));
+ok('a WebP export never asks for a side the format cannot store',
+  [1, 2, 4, 8, 10, 16, 20].every((s) => {
+    const p = C.fitExport(1500, 500, s, C.exportSideLimit('image/webp'));
+    return !p.ok || (p.w <= 16383 && p.h <= 16383);
+  }));
+const squareWebp = C.fitExport(1080, 1080, 16, C.exportSideLimit('image/webp'));
+ok('a square artboard clamps to 15x at most for WebP',
+  squareWebp.ok && squareWebp.scale <= 15 && squareWebp.w <= 16383, JSON.stringify(squareWebp));
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL CORE TESTS PASSED');
 process.exit(fails?1:0);
