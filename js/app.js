@@ -3206,8 +3206,8 @@
     /* a fresh design is a design-sized canvas, not a 64×64 sprite */
     var dw = Math.max(1080, S.w), dh = Math.max(1080, S.h);
     modal('New document',
-      '<div class="row"><label>Width</label><input type="number" id="dlg-w" min="1" max="' + MAX_DOC_SIDE + '" value="' + dw + '"></div>' +
-      '<div class="row"><label>Height</label><input type="number" id="dlg-h" min="1" max="' + MAX_DOC_SIDE + '" value="' + dh + '"></div>' +
+      '<div class="row"><label for="dlg-w">Width</label><input type="number" id="dlg-w" min="1" max="' + MAX_DOC_SIDE + '" value="' + dw + '"></div>' +
+      '<div class="row"><label for="dlg-h">Height</label><input type="number" id="dlg-h" min="1" max="' + MAX_DOC_SIDE + '" value="' + dh + '"></div>' +
       '<div class="presets-row" id="dlg-presets">' +
       TEMPLATES.map(function (t, i) { return '<button class="btn" data-t="' + i + '">' + t.label + '</button>'; }).join('') +
       '</div><p class="hint">Pick a template for banners and social posts, or type your own size.</p>',
@@ -3229,8 +3229,8 @@
 
   function canvasDialog() {
     modal('Canvas',
-      '<div class="row"><label>Width</label><input type="number" id="dlg-w" min="1" max="' + MAX_DOC_SIDE + '" value="' + S.w + '"></div>' +
-      '<div class="row"><label>Height</label><input type="number" id="dlg-h" min="1" max="' + MAX_DOC_SIDE + '" value="' + S.h + '"></div>' +
+      '<div class="row"><label for="dlg-w">Width</label><input type="number" id="dlg-w" min="1" max="' + MAX_DOC_SIDE + '" value="' + S.w + '"></div>' +
+      '<div class="row"><label for="dlg-h">Height</label><input type="number" id="dlg-h" min="1" max="' + MAX_DOC_SIDE + '" value="' + S.h + '"></div>' +
       '<div class="presets-row" id="dlg-presets">' +
       [16, 32, 48, 64, 128, 256, 512].map(function (v) { return '<button class="btn" data-p="' + v + '">' + v + '²</button>'; }).join('') +
       '</div>' +
@@ -3371,15 +3371,15 @@
 
   function exportDialog() {
     modal('Export image',
-      '<div class="row"><label>Format</label><select id="dlg-format">' +
+      '<div class="row"><label for="dlg-format">Format</label><select id="dlg-format">' +
       '<option value="image/png">PNG — keeps transparency</option>' +
       '<option value="image/jpeg">JPEG — smaller, no transparency</option>' +
       '<option value="image/webp">WebP — smallest, keeps transparency</option>' +
       '</select></div>' +
-      '<div class="row"><label>Scale</label><select id="dlg-scale">' +
+      '<div class="row"><label for="dlg-scale">Scale</label><select id="dlg-scale">' +
       scaleOptions('image/png') + '</select></div>' +
-      '<div class="row"><label>Quality</label><input type="range" id="dlg-quality" min="40" max="100" value="92"><b id="dlg-quality-val">92</b></div>' +
-      '<div class="row"><label>Name</label><input type="text" id="dlg-name" value="pixelstudioedit"></div>' +
+      '<div class="row"><label for="dlg-quality">Quality</label><input type="range" id="dlg-quality" min="40" max="100" value="92"><b id="dlg-quality-val">92</b></div>' +
+      '<div class="row"><label for="dlg-name">Name</label><input type="text" id="dlg-name" value="pixelstudioedit"></div>' +
       '<p class="hint">Nearest-neighbour scaling keeps pixels sharp. Quality applies to JPEG and WebP.</p>',
       function (ov) {
         var scale = +$('#dlg-scale', ov).value || 1;
@@ -3564,8 +3564,17 @@
     buildTextCanvas: buildTextCanvas
   };
 
-  /* Installable / offline: register the app-shell service worker where allowed. */
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  /* Installable / offline: register the app-shell service worker where allowed.
+   *
+   * The rule the platform actually applies is "a secure context", not a list of
+   * hostnames. The old check was `https:` or `localhost`, which silently skipped
+   * 127.0.0.1 and [::1] — the two other names a local server answers on. Served
+   * from 127.0.0.1 the page therefore never installed the offline shell: measured
+   * in Chromium, navigator.serviceWorker.getRegistration() resolved to nothing,
+   * while an explicit register() on the same page succeeded immediately.
+   * isSecureContext is true for file:// too, so the protocol is still checked. */
+  if ('serviceWorker' in navigator &&
+      (location.protocol === 'https:' || (location.protocol === 'http:' && window.isSecureContext === true))) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () { /* offline shell is optional */ });
     });

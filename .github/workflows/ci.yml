@@ -31,6 +31,8 @@ jobs:
         run: node --test tests/responsive.test.js
       - name: Run manual content regression tests
         run: node --test tests/manual.test.js
+      - name: Run accessibility regression tests
+        run: node --test tests/a11y.test.js
       - name: Check the worker and the toolkit ship together
         run: |
           for f in js/nirbhar.js js/nirbhar-ui.js js/nirbhar-worker.js js/nirbhar-i18n.js; do

@@ -2,7 +2,7 @@
    Cache-first for the app shell, network-first for everything else.
    The Nirbhar toolkit and the self-hosted fonts are part of the shell, so the
    editor keeps working with the network switched off. */
-const VERSION = 'pse-v13';
+const VERSION = 'pse-v14';
 const SHELL = [
   './',
   'index.html',
