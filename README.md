@@ -2,7 +2,7 @@
 
 A free, open-source pixel art **and text** editor that runs entirely in your browser. No install, no account, no uploads — every pixel stays on your machine.
 
-**Live editor:** [galeoindus.github.io/pixbinduedit](https://galeoindus.github.io/pixbinduedit/)
+**Live editor:** [galeoindus.github.io/pixelstudioedit](https://galeoindus.github.io/pixelstudioedit/)
 
 **Nirbhar toolkit:** eighteen offline tools inside the editor — background remover, photo enhancer, upscaler, photo-to-pixel-art converter, neon glow, animated GIF maker, sprite-sheet slicer, PDF maker, icon pack, SVG export, generative art and more. No upload, no account, no model download. See the [manual](docs/NIRBHAR_MANUAL.md).
 
@@ -166,7 +166,7 @@ Open `index.html` in a browser — no build step, no dependencies.
 To run it locally with a server (recommended, so autosave and file APIs behave predictably):
 
 ```bash
-git clone https://github.com/galeoindus/pixbinduedit.git
+git clone https://github.com/galeoindus/pixelstudioedit.git
 cd pixbinduedit
 python3 -m http.server 8000
 # then open http://localhost:8000
@@ -247,6 +247,41 @@ The editor is one page at one address, and the repository keeps it that way:
 If a URL that should not exist still shows in Google Search Console, the fix is
 on Google's side, not in this repository: it has to be re-crawled so the noindex
 is seen, or removed with Search Console → Removals → New request.
+
+## Deploying
+
+The editor is static files: wherever they are served from, it runs.
+
+**GitHub Pages** serves it from `https://galeoindus.github.io/pixelstudioedit/`,
+which is the address the canonical tag, the sitemap and `robots.txt` name. The
+`404.html` is written for that host.
+
+**Cloudflare Pages** is the second target:
+
+```bash
+node scripts/deploy.mjs        # creates the project if it is missing, then uploads
+```
+
+or by hand, in this order — the first command is the one that is easy to miss:
+
+```bash
+npx wrangler pages project create pixelstudioedit --production-branch=main
+npx wrangler pages deploy . --project-name=pixelstudioedit
+```
+
+A Pages project belongs to the account that created it. A new Cloudflare
+account therefore has none, and `pages deploy` answers **Project not found**
+until the project exists — that message means a missing project, not a broken
+repository. The workflow in `.github/workflows/deploy.yml` creates it before
+every upload, so a fresh account only needs the two repository secrets
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+The Pages host for this project is `https://pixelstudioedit-8kc.pages.dev/`
+(the plain `pixelstudioedit.pages.dev` name is taken by another account). If
+Cloudflare becomes the primary address, move the canonical, the sitemap, the
+`robots.txt` line and the Open Graph URL to that host in one commit.
+
+---
 
 ## Contributing
 

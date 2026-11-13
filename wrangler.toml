@@ -1,0 +1,26 @@
+# Pixel Studio Edit — Cloudflare Pages configuration.
+#
+# The editor is one static page with no build step, so Pages only needs to know
+# where the files are.
+#
+#   npm run deploy
+#
+# or by hand — the first command is the one that is easy to forget:
+#
+#   npx wrangler pages project create pixelstudioedit --production-branch=main
+#   npx wrangler pages deploy . --project-name=pixelstudioedit
+#
+# A Pages project belongs to the account that created it, so a new Cloudflare
+# account has none and `pages deploy` answers "Project not found" until the
+# project exists. That is a missing project, not a broken repository.
+#
+# The host this project serves is https://pixelstudioedit-8kc.pages.dev/ : the
+# plain pixelstudioedit.pages.dev name is already taken by another account.
+# The canonical URL in index.html, the sitemap and robots.txt still point at
+# the GitHub Pages address, which is where the site has been published so far.
+# Move those three to the Pages host in one commit if this becomes the primary
+# address.
+
+name = "pixelstudioedit"
+compatibility_date = "2026-01-01"
+pages_build_output_dir = "."
