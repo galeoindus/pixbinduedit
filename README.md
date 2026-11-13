@@ -2,7 +2,7 @@
 
 A free, open-source pixel art **and text** editor that runs entirely in your browser. No install, no account, no uploads — every pixel stays on your machine.
 
-**Live editor:** [galeoindus.github.io/pixelstudioedit](https://galeoindus.github.io/pixelstudioedit/)
+**Live editor:** [galeoindus.github.io/pixbinduedit](https://galeoindus.github.io/pixbinduedit/)
 
 **Nirbhar toolkit:** eighteen offline tools inside the editor — background remover, photo enhancer, upscaler, photo-to-pixel-art converter, neon glow, animated GIF maker, sprite-sheet slicer, PDF maker, icon pack, SVG export, generative art and more. No upload, no account, no model download. See the [manual](docs/NIRBHAR_MANUAL.md).
 
@@ -166,7 +166,7 @@ Open `index.html` in a browser — no build step, no dependencies.
 To run it locally with a server (recommended, so autosave and file APIs behave predictably):
 
 ```bash
-git clone https://github.com/galeoindus/pixelstudioedit.git
+git clone https://github.com/galeoindus/pixbinduedit.git
 cd pixbinduedit
 python3 -m http.server 8000
 # then open http://localhost:8000
@@ -252,7 +252,7 @@ is seen, or removed with Search Console → Removals → New request.
 
 The editor is static files: wherever they are served from, it runs.
 
-**GitHub Pages** serves it from `https://galeoindus.github.io/pixelstudioedit/`,
+**GitHub Pages** serves it from `https://galeoindus.github.io/pixbinduedit/`,
 which is the address the canonical tag, the sitemap and `robots.txt` name. The
 `404.html` is written for that host.
 
@@ -265,8 +265,8 @@ node scripts/deploy.mjs        # creates the project if it is missing, then uplo
 or by hand, in this order — the first command is the one that is easy to miss:
 
 ```bash
-npx wrangler pages project create pixelstudioedit --production-branch=main
-npx wrangler pages deploy . --project-name=pixelstudioedit
+npx wrangler pages project create pixbinduedit --production-branch=main
+npx wrangler pages deploy . --project-name=pixbinduedit
 ```
 
 A Pages project belongs to the account that created it. A new Cloudflare
@@ -276,10 +276,12 @@ repository. The workflow in `.github/workflows/deploy.yml` creates it before
 every upload, so a fresh account only needs the two repository secrets
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
-The Pages host for this project is `https://pixelstudioedit-8kc.pages.dev/`
-(the plain `pixelstudioedit.pages.dev` name is taken by another account). If
-Cloudflare becomes the primary address, move the canonical, the sitemap, the
-`robots.txt` line and the Open Graph URL to that host in one commit.
+The Pages project is named `pixbinduedit`, matching the repository. Cloudflare
+keeps the subdomain a project was created with, so the host is
+`https://pixelstudioedit-8kc.pages.dev/` — the plain
+`pixelstudioedit.pages.dev` name belongs to another account. If Cloudflare
+becomes the primary address, move the canonical, the sitemap, the `robots.txt`
+line and the Open Graph URL to that host in one commit.
 
 ---
 
