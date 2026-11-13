@@ -1,6 +1,6 @@
 # Bundled fonts
 
-Pixel Studio Edit ships its typefaces instead of loading them from a font CDN,
+Pixbindu ships its typefaces instead of loading them from a font CDN,
 so the editor looks the same with the network switched off. Each file here is the
 Latin subset of the family, taken from the publisher's own release and served
 under the SIL Open Font License 1.1.

@@ -1,4 +1,4 @@
-/* Pixel Studio Edit — editor front-end.
+/* Pixbindu — editor front-end.
  * Original implementation, MIT licensed. Everything runs locally in the browser.
  */
 (function () {
@@ -14,8 +14,12 @@
   /* The largest document side the editor will hold. A bigger photo is scaled
      down as a whole; it is never squashed in one direction. */
   var MAX_DOC_SIDE = 4096;
-  var AUTOSAVE_KEY = 'pixelstudioedit.autosave.v3';
-  var RECOVERY_DB = 'pixelstudioedit-recovery';
+  var AUTOSAVE_KEY = 'pixbindu.autosave.v3';
+  var RECOVERY_DB = 'pixbindu-recovery';
+  /* Both of these were renamed with the product. They are still read once, so a
+     project autosaved under the old names is not lost — see readAutosave(). */
+  var LEGACY_AUTOSAVE_KEY = 'pixelstudioedit.autosave.v3';
+  var LEGACY_RECOVERY_DB = 'pixelstudioedit-recovery';
   var BLEND_MODES = {
     normal: 'source-over', multiply: 'multiply', screen: 'screen',
     overlay: 'overlay', darken: 'darken', lighten: 'lighten', difference: 'difference'
@@ -106,7 +110,7 @@
 
   function on(id, evt, fn) {
     var el = byId(id);
-    if (!el) { console.warn('pixelstudioedit: missing element #' + id); return; }
+    if (!el) { console.warn('pixbindu: missing element #' + id); return; }
     el.addEventListener(evt, fn);
   }
 
@@ -314,8 +318,6 @@
      previous buffer by reference, so history only stores what actually changed. */
   function snapshot(previous) {
     var prevLayers = previous && previous.layers ? previous.layers : [];
-    var prevByName = {};
-    prevLayers.forEach(function (pl) { prevByName[pl.name + ':' + pl.visible] = pl; });
 
     return {
       w: S.w, h: S.h, active: S.active,
@@ -755,17 +757,23 @@
           for (var k = i + 1; k < S.layers.length; k++) {
             if (S.layers[k].groupId === grp.id) { isFirstOfGroup = false; break; }
           }
-          if (isFirstOfGroup && !grp.collapsed) {
+          /* The header is drawn whether or not the group is collapsed. It used
+             to be drawn only while expanded, so collapsing a group removed the
+             one control that could expand it again: the group and every layer
+             inside it disappeared from the panel for good. */
+          if (isFirstOfGroup) {
             var head = document.createElement('div');
-            head.className = 'group-row';
+            head.className = 'group-row' + (grp.collapsed ? ' collapsed' : '');
             var gEye = document.createElement('button');
             gEye.className = 'eye' + (grp.visible ? ' on' : '');
             gEye.textContent = grp.visible ? '●' : '○';
+            gEye.title = 'Show / hide the group';
             gEye.onclick = function (e) { e.stopPropagation(); grp.visible = !grp.visible; render(); renderLayers(); };
             var gName = document.createElement('span');
             gName.className = 'group-name';
-            gName.textContent = '▸ ' + grp.name;
-            gName.onclick = function (e) { e.stopPropagation(); grp.collapsed = true; renderLayers(); };
+            gName.textContent = (grp.collapsed ? '▸ ' : '▾ ') + grp.name;
+            gName.title = grp.collapsed ? 'Expand the group' : 'Collapse the group';
+            gName.onclick = function (e) { e.stopPropagation(); grp.collapsed = !grp.collapsed; renderLayers(); };
             head.appendChild(gEye);
             head.appendChild(gName);
             box.appendChild(head);
@@ -2256,7 +2264,7 @@
 
   function projectObject() {
     return {
-      app: 'pixelstudioedit', version: 5,
+      app: 'pixbindu', version: 5,
       w: S.w, h: S.h,
       palette: S.palette.slice(),
       groups: JSON.parse(JSON.stringify(S.groups)),
@@ -2276,7 +2284,7 @@
   }
 
   function loadProject(obj) {
-    if (!obj || !obj.layers || !obj.layers.length) { toast('Not a Pixel Studio Edit project'); return; }
+    if (!obj || !obj.layers || !obj.layers.length) { toast('Not a Pixbindu project'); return; }
     S.w = obj.w || 64; S.h = obj.h || 64;
     S.layers = obj.layers.map(function (o) {
       var l = mkLayer(o.name || 'Layer');
@@ -2327,31 +2335,87 @@
     });
   }
 
-  function openRecoveryDb(done) {
+  function openRecoveryDb(done, name, onlyIfExisting) {
     if (!window.indexedDB) { done(null); return; }
+    var created = false;
     var request;
-    try { request = window.indexedDB.open(RECOVERY_DB, 1); }
+    try { request = window.indexedDB.open(name || RECOVERY_DB, 1); }
     catch (err) { done(null); return; }
     request.onupgradeneeded = function () {
+      created = true;
       var db = request.result;
       if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects');
     };
-    request.onsuccess = function () { done(request.result); };
+    request.onsuccess = function () {
+      var db = request.result;
+      /* Opening a database that is not there creates it. A read of the old,
+         pre-rename database must not leave an empty one behind on a machine
+         that never had it. */
+      if (created && onlyIfExisting) {
+        db.close();
+        try { window.indexedDB.deleteDatabase(name); } catch (err) {}
+        done(null);
+        return;
+      }
+      done(db);
+    };
     request.onerror = function () { done(null); };
+  }
+
+  function readStoredProject(db, done) {
+    try {
+      var tx = db.transaction('projects', 'readonly');
+      var req = tx.objectStore('projects').get('latest');
+      req.onsuccess = function () { db.close(); done(req.result || null); };
+      req.onerror = function () { db.close(); done(null); };
+    } catch (err) { db.close(); done(null); }
+  }
+
+  /* The editor was renamed, and the two places it keeps an unfinished project
+     were renamed with it. A project autosaved under the old names is usually
+     the user's only copy, so it is read once and carried over rather than
+     being silently left behind. */
+  function readLegacyRecovery(done) {
+    openRecoveryDb(function (db) {
+      if (!db) { done(null); return; }
+      readStoredProject(db, function (value) {
+        if (!value) { done(null); return; }
+        openRecoveryDb(function (target) {
+          if (!target) { done(value); return; }
+          try {
+            var tx = target.transaction('projects', 'readwrite');
+            tx.objectStore('projects').put(value, 'latest');
+            tx.oncomplete = function () { target.close(); done(value); };
+            tx.onerror = function () { target.close(); done(value); };
+            tx.onabort = function () { target.close(); done(value); };
+          } catch (err) { target.close(); done(value); }
+        });
+      });
+    }, LEGACY_RECOVERY_DB, true);
   }
 
   function readAutosave(done) {
     var local = null;
     try { local = localStorage.getItem(AUTOSAVE_KEY); } catch (err) {}
+    if (!local) {
+      try {
+        var legacy = localStorage.getItem(LEGACY_AUTOSAVE_KEY);
+        if (legacy) {
+          local = legacy;
+          try {
+            localStorage.setItem(AUTOSAVE_KEY, legacy);
+            localStorage.removeItem(LEGACY_AUTOSAVE_KEY);
+          } catch (err) {}
+        }
+      } catch (err) {}
+    }
     if (local) { done(local); return; }
     openRecoveryDb(function (db) {
-      if (!db) { done(null); return; }
-      try {
-        var tx = db.transaction('projects', 'readonly');
-        var req = tx.objectStore('projects').get('latest');
-        req.onsuccess = function () { db.close(); done(req.result || null); };
-        req.onerror = function () { db.close(); done(null); };
-      } catch (err) { db.close(); done(null); }
+      if (!db) { readLegacyRecovery(done); return; }
+      readStoredProject(db, function (value) {
+        if (value) { done(value); return; }
+        readLegacyRecovery(done);
+      });
     });
   }
 
@@ -2418,7 +2482,7 @@
         toast('Export failed — the browser could not encode a ' + plan.w + '×' + plan.h + ' image');
         return;
       }
-      saveBlob(blob, filename || 'pixelstudioedit.png');
+      saveBlob(blob, filename || 'pixbindu.png');
       toast('Exported ' + cv.width + '×' + cv.height + ' · ' + Math.round(blob.size / 1024) + ' KB');
     }, format || 'image/png', quality);
   }
@@ -2640,7 +2704,7 @@
     on('m-open', 'click', function () { byId('menu-pop').hidden = true; byId('file-open').click(); });
     on('m-save', 'click', function () {
       byId('menu-pop').hidden = true;
-      saveBlob(new Blob([JSON.stringify(projectObject())], { type: 'application/json' }), 'pixelstudioedit-project.json');
+      saveBlob(new Blob([JSON.stringify(projectObject())], { type: 'application/json' }), 'pixbindu-project.json');
       toast('Project saved');
     });
     on('m-import', 'click', function () { byId('menu-pop').hidden = true; byId('file-import').click(); });
@@ -3347,9 +3411,9 @@
         '" fill="' + fill + '"' + strokeAttrs + shadowFilter + transform + '>' + tspans + '</text>');
     });
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' +
-      S.w + '" height="' + S.h + '" viewBox="0 0 ' + S.w + ' ' + S.h + '"><title>Pixel Studio Edit design</title><defs>' +
+      S.w + '" height="' + S.h + '" viewBox="0 0 ' + S.w + ' ' + S.h + '"><title>Pixbindu design</title><defs>' +
       defs.join('') + '</defs>' + body.join('') + '</svg>';
-    saveBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), 'pixelstudioedit-design.svg');
+    saveBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), 'pixbindu-design.svg');
     toast('SVG exported — editable text and shapes are preserved');
   }
 
@@ -3379,14 +3443,16 @@
       '<div class="row"><label for="dlg-scale">Scale</label><select id="dlg-scale">' +
       scaleOptions('image/png') + '</select></div>' +
       '<div class="row"><label for="dlg-quality">Quality</label><input type="range" id="dlg-quality" min="40" max="100" value="92"><b id="dlg-quality-val">92</b></div>' +
-      '<div class="row"><label for="dlg-name">Name</label><input type="text" id="dlg-name" value="pixelstudioedit"></div>' +
+      '<div class="row"><label for="dlg-name">Name</label><input type="text" id="dlg-name" value="pixbindu"></div>' +
       '<p class="hint">Nearest-neighbour scaling keeps pixels sharp. Quality applies to JPEG and WebP.</p>',
       function (ov) {
         var scale = +$('#dlg-scale', ov).value || 1;
         var format = $('#dlg-format', ov).value;
         var quality = (+$('#dlg-quality', ov).value || 92) / 100;
         var ext = format === 'image/jpeg' ? '.jpg' : (format === 'image/webp' ? '.webp' : '.png');
-        var name = ($('#dlg-name', ov).value || 'pixelstudioedit').replace(/[^\w\-]+/g, '-');
+        /* A name made only of punctuation sanitises to nothing, which used to
+           save a file called just ".png". Fall back to the default instead. */
+        var name = ($('#dlg-name', ov).value || '').replace(/[^\w\-]+/g, '-').replace(/^-+|-+$/g, '') || 'pixbindu';
         exportImage(scale, name + ext, format, quality);
       }, 'Download');
     var q = byId('dlg-quality');
@@ -3420,7 +3486,7 @@
       if (k === 'y') { e.preventDefault(); redo(); return; }
       if (k === 's') {
         e.preventDefault();
-        saveBlob(new Blob([JSON.stringify(projectObject())], { type: 'application/json' }), 'pixelstudioedit-project.json');
+        saveBlob(new Blob([JSON.stringify(projectObject())], { type: 'application/json' }), 'pixbindu-project.json');
         return;
       }
       if (k === 'a') { e.preventDefault(); S.sel = { x: 0, y: 0, w: S.w, h: S.h }; render(); return; }

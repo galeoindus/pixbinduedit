@@ -1,6 +1,6 @@
 {
-  "name": "Pixel Studio Edit",
-  "short_name": "pixelstudio",
+  "name": "Pixbindu",
+  "short_name": "pixbindu",
   "description": "Pixel art and text editor in your browser — 3D text, stickers, layers, palettes, templates and PNG/JPEG/WebP export.",
   "start_url": "./",
   "scope": "./",

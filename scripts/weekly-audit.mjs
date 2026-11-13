@@ -38,7 +38,11 @@ for (const m of html.matchAll(/(?:href|src)\s*=\s*["']([^"']+)["']/gi)) {
   const clean = raw.split('#')[0].split('?')[0];
   if (!clean) continue;
   refCount += 1;
-  const target = clean.startsWith('/') ? join(ROOT, clean) : join(ROOT, clean);
+  /* An absolute reference ("/assets/x.png") is resolved from the site root and a
+     relative one from the folder index.html lives in — which is the repository
+     root, so both land in the same place. Written out rather than as a ternary
+     with two identical branches. */
+  const target = join(ROOT, clean.replace(/^\/+/, ''));
   if (!existsSync(target)) problems.push(`index.html → ${raw} does not exist`);
 }
 notes.push(`${refCount} local references from index.html`);

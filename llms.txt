@@ -1,6 +1,6 @@
-# Pixel Studio Edit
+# Pixbindu
 
-> Pixel Studio Edit is a free, open-source pixel art and text editor that runs
+> Pixbindu is a free, open-source pixel art and text editor that runs
 > entirely in your browser. Text graphics, photo editing and pixel art share one
 > canvas, one set of editable layers and one export. There is no account, no
 > install and no upload: the image you open stays on your machine.
@@ -40,12 +40,12 @@ any static host.
 
 ## Pages
 
-- [Editor](https://galeoindus.github.io/pixelstudioedit/): the whole application
+- [Editor](https://galeoindus.github.io/pixbindu/): the whole application
   — start screen, canvas, tool rail, panels, Nirbhar.
-- [Nirbhar manual](https://github.com/galeoindus/pixelstudioedit/blob/main/docs/NIRBHAR_MANUAL.md):
+- [Nirbhar manual](https://github.com/galeoindus/pixbindu/blob/main/docs/NIRBHAR_MANUAL.md):
   what each of the eighteen tools does and where its limits are (English and
   Hindi).
-- [Source](https://github.com/galeoindus/pixelstudioedit): the repository, the
+- [Source](https://github.com/galeoindus/pixbindu): the repository, the
   issue tracker and the licence.
 
 ## Notes for automated readers
@@ -53,7 +53,7 @@ any static host.
 - This is an application, not a library of articles: there is one HTML page, and
   its content is the editor itself. The interactive panels need JavaScript.
 - `sitemap.xml` lists that one page, at its canonical address
-  `https://galeoindus.github.io/pixelstudioedit/`.
+  `https://galeoindus.github.io/pixbindu/`.
 - `robots.txt` allows every crawler.
 - Every other address on the host answers with `404.html`, which is marked
   `noindex, nofollow`; there are no second pages to index.

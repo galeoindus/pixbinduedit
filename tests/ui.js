@@ -1,4 +1,4 @@
-// Headless UI test for pixelstudio.  node test/ui.js
+// Headless UI test for pixbindu.  node test/ui.js
 // Needs puppeteer-core plus a Chromium binary (set CHROME_PATH if it is elsewhere).
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); }

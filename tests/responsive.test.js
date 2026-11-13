@@ -86,7 +86,7 @@ test('editable SVG export keeps ordinary text and shapes as vector elements', ()
 });
 
 test('autosave falls back to IndexedDB and device profiles cap mobile backing stores', () => {
-  assert.match(app, /function openRecoveryDb\(done\)/);
+  assert.match(app, /function openRecoveryDb\(done, name, onlyIfExisting\)/);
   assert.match(app, /function readAutosave\(done\)/);
   assert.match(app, /RECOVERY_DB/);
   assert.match(app, /budget = coarse \? 8e6 : MAX_BACKING/);
@@ -97,6 +97,19 @@ test('object transform toolbar binds every button without breaking editor boot',
   const binding = app.split('\n').find(line => line.includes("[data-object-transform]"));
   assert.ok(binding, 'transform toolbar binding exists');
   assert.match(binding, /^\s*\$\$\(/, 'uses querySelectorAll helper for all transform controls');
+});
+
+/* The product was renamed and its two storage names changed with it. A project
+ * autosaved before the rename is the user's only copy, so the new names must be
+ * read after the old ones, never instead of them. */
+test('an autosave written before the rename is still recovered', () => {
+  assert.match(app, /var LEGACY_AUTOSAVE_KEY = 'pixelstudioedit\.autosave\.v3'/);
+  assert.match(app, /var LEGACY_RECOVERY_DB = 'pixelstudioedit-recovery'/);
+  const read = app.slice(app.indexOf('function readAutosave(done)'), app.indexOf('function queueAutosave()'));
+  assert.match(read, /localStorage\.getItem\(LEGACY_AUTOSAVE_KEY\)/);
+  assert.match(read, /readLegacyRecovery\(done\)/);
+  /* a read of the old database must not create an empty one on a fresh machine */
+  assert.match(app, /deleteDatabase\(name\)/);
 });
 
 test('IndexedDB recovery keeps the previous local autosave until the new write commits', () => {

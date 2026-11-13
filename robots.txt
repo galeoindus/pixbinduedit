@@ -1,8 +1,8 @@
-# Pixel Studio Edit serves exactly one page. Everything else on this host is a
+# Pixbindu serves exactly one page. Everything else on this host is a
 # 404 with a noindex tag, so nothing here needs to be blocked from crawling:
 # Google has to be able to fetch a page to see that it is gone.
 User-agent: *
 Allow: /
 Disallow: /404.html
 
-Sitemap: https://galeoindus.github.io/pixelstudioedit/sitemap.xml
+Sitemap: https://galeoindus.github.io/pixbindu/sitemap.xml

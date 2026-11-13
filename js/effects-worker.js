@@ -1,4 +1,4 @@
-/* Pixel Studio Edit — image-effect worker.
+/* Pixbindu — image-effect worker.
  * Heavy pixel work runs here so drawing and gestures stay on the main thread.
  */
 importScripts('core.js');
