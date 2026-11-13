@@ -139,5 +139,38 @@ const twelve = C.fitWithin(4032, 3024, 4096, 16e6);
 ok('a 12 MP phone photo keeps its own resolution',
   twelve.scale === 1 && twelve.w === 4032 && twelve.h === 3024, JSON.stringify(twelve));
 
+/* ------------------------------------------------------------ fitExport
+ * A 1080 px artboard offered 16x and 20x in the export dialog. Those canvases
+ * are 298.6 MP and 466.6 MP, past the area a browser will encode, so toBlob()
+ * called back with null, saveBlob(null) threw and the export produced no file
+ * and no message. Measured in Chromium: 10800x10800 encodes, 17280x17280 null.
+ */
+const ex20 = C.fitExport(1080, 1080, 20);
+ok('fitExport clamps 20x of a 1080 artboard to an encodable size',
+  ex20.ok && ex20.clamped === true && ex20.scale < 20 && ex20.w * ex20.h <= 134217728, JSON.stringify(ex20));
+const ex16 = C.fitExport(1080, 1080, 16);
+ok('fitExport clamps 16x of a 1080 artboard to an encodable size',
+  ex16.ok && ex16.clamped === true && ex16.scale < 16 && ex16.w * ex16.h <= 134217728, JSON.stringify(ex16));
+const exHuge = C.fitExport(20000, 20000, 1);
+ok('fitExport refuses a document too large even at 1x', exHuge.ok === false, JSON.stringify(exHuge));
+const ex10 = C.fitExport(1080, 1080, 10);
+ok('fitExport allows 10x of a 1080 artboard unchanged',
+  ex10.ok && ex10.scale === 10 && ex10.w === 10800 && ex10.h === 10800 && ex10.clamped === false,
+  JSON.stringify(ex10));
+const ex8 = C.fitExport(1080, 1080, 8);
+ok('fitExport allows 8x of a 1080 artboard', ex8.ok && ex8.scale === 8 && ex8.clamped === false, JSON.stringify(ex8));
+const exClamp = C.fitExport(1080, 1080, 14);
+ok('fitExport clamps 14x down to a scale that encodes',
+  exClamp.ok && exClamp.clamped === true && exClamp.scale < 14 && exClamp.w * exClamp.h <= 134217728,
+  JSON.stringify(exClamp));
+const ex1 = C.fitExport(64, 64, 1);
+ok('fitExport leaves a small export alone', ex1.ok && ex1.scale === 1 && ex1.clamped === false, JSON.stringify(ex1));
+ok('fitExport keeps every result inside the area limit',
+  [1, 2, 4, 8, 10, 16, 20].every((s) => { const p = C.fitExport(4096, 4096, s); return !p.ok || p.w * p.h <= 134217728; }));
+ok('fitExport keeps the aspect ratio of what it clamps',
+  (() => { const p = C.fitExport(1080, 1920, 16); return !p.ok || Math.abs(p.w / p.h - 1080 / 1920) < 0.01; })());
+ok('fitExport never exceeds the max canvas side',
+  [1, 2, 4, 8, 10, 16, 20].every((s) => { const p = C.fitExport(4096, 4096, s); return !p.ok || (p.w <= 32767 && p.h <= 32767); }));
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL CORE TESTS PASSED');
 process.exit(fails?1:0);

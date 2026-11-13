@@ -660,6 +660,72 @@
     return { scale: s, w: Math.max(1, Math.round(w * s)), h: Math.max(1, Math.round(h * s)) };
   }
 
+  /* How big a canvas the browser will actually encode.
+   *
+   * Chrome documents a maximum canvas area of 268,435,456 px (2^28) and a
+   * maximum side of 65,535 px; other engines are stricter, never looser. Past
+   * that limit `canvas.toBlob()` does not throw - it calls back with null. The
+   * export dialog offered 16x and 20x for a 1080 px artboard, so 17280x17280
+   * and 21600x21600 were on the menu and both came back null: the Download
+   * button produced no file and no message. Measured in Chromium, 10800x10800
+   * (116.6 MP) encodes a 2.2 MB PNG and 17280x17280 (298.6 MP) returns null,
+   * so the budget below is half the documented ceiling: still far past any
+   * real export, with room for the encoder's own buffers.
+   */
+  var EXPORT_MAX_AREA = 134217728;   /* 128 MP, half of Chrome's 2^28 */
+  var EXPORT_MAX_SIDE = 32767;       /* half of Chrome's 65,535 */
+
+  /* The largest whole-number export scale that fits, never above the one asked
+     for. Returns { ok, scale, w, h, area, clamped } - ok is false only when not
+     even 1x can be encoded, in which case nothing should be drawn at all. */
+  function fitExport(w, h, scale) {
+    w = Math.max(1, Math.round(w || 0));
+    h = Math.max(1, Math.round(h || 0));
+    var want = Math.max(1, Math.round(scale || 1));
+    var fits = function (s) {
+      return w * s <= EXPORT_MAX_SIDE && h * s <= EXPORT_MAX_SIDE && w * s * h * s <= EXPORT_MAX_AREA;
+    };
+    var build = function (s, clamped) {
+      return { ok: true, scale: s, w: w * s, h: h * s, area: w * h * s * s, clamped: clamped };
+    };
+    if (fits(want)) return build(want, false);
+    for (var s = want - 1; s >= 1; s--) if (fits(s)) return build(s, true);
+    return { ok: false, scale: 1, w: w, h: h, area: w * h, clamped: true };
+  }
+
+  /* How big a canvas the browser will actually encode.
+   *
+   * Chrome documents a maximum canvas area of 268,435,456 px (2^28) and a
+   * maximum side of 65,535 px; other engines are stricter, never looser. Past
+   * that limit `canvas.toBlob()` does not throw — it calls back with null. The
+   * export dialog offered 16x and 20x for a 1080 px artboard, so 17280x17280
+   * and 21600x21600 were on the menu and both came back null: the Download
+   * button produced no file and no message. Measured in Chromium, 10800x10800
+   * (116.6 MP) encodes a 2.2 MB PNG and 17280x17280 (298.6 MP) returns null,
+   * so the budget below is half the documented ceiling: still far past any
+   * real export, and with room for the encoder's own buffers.
+   */
+  var EXPORT_MAX_AREA = 134217728;   /* 128 MP, half of Chrome's 2^28 */
+  var EXPORT_MAX_SIDE = 32767;       /* half of Chrome's 65,535 */
+
+  /* The largest whole-number export scale that fits, never above the one asked
+     for. Returns { ok, scale, w, h, area, clamped } — ok is false only when not
+     even 1x can be encoded, in which case nothing should be drawn at all. */
+  function fitExport(w, h, scale) {
+    w = Math.max(1, Math.round(w || 0));
+    h = Math.max(1, Math.round(h || 0));
+    var want = Math.max(1, Math.round(scale || 1));
+    var fits = function (s) {
+      return w * s <= EXPORT_MAX_SIDE && h * s <= EXPORT_MAX_SIDE && w * s * h * s <= EXPORT_MAX_AREA;
+    };
+    var build = function (s, clamped) {
+      return { ok: true, scale: s, w: w * s, h: h * s, area: w * h * s * s, clamped: clamped };
+    };
+    if (fits(want)) return build(want, false);
+    for (var s = want - 1; s >= 1; s--) if (fits(s)) return build(s, true);
+    return { ok: false, scale: 1, w: w, h: h, area: w * h, clamped: true };
+  }
+
   var api = {
     clamp: clamp,
     extrude: extrude,
@@ -669,6 +735,8 @@
     sepia: sepia,
     dominantColors: dominantColors,
     autoKey: autoKey,
+    fitExport: fitExport,
+    fitExport: fitExport,
     resample: resample,
     stripes: stripes,
     chromaKey: chromaKey,

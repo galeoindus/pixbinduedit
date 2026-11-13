@@ -2388,8 +2388,21 @@
   }
 
   function exportImage(scale, filename, format, quality) {
+    /* The canvas this export needs may be larger than the browser will encode.
+       Past its limit toBlob() calls back with null instead of throwing, so the
+       old code went on to saveBlob(null) — createObjectURL threw inside the
+       callback and the Download button produced nothing at all. Clamp to a
+       scale that can be encoded, and say so when the size had to change. */
+    var plan = C.fitExport(S.w, S.h, scale);
+    if (!plan.ok) {
+      toast('Too large to export — ' + S.w + '×' + S.h + ' is past what this browser can encode');
+      return;
+    }
+    if (plan.clamped) {
+      toast('This browser cannot encode ' + (S.w * scale) + '×' + (S.h * scale) + ' — exporting at ' + plan.scale + '×');
+    }
     var cv = document.createElement('canvas');
-    cv.width = S.w * scale; cv.height = S.h * scale;
+    cv.width = plan.w; cv.height = plan.h;
     var c = cv.getContext('2d');
     c.imageSmoothingEnabled = false;
     if (format !== 'image/png') {           // JPEG has no alpha: fill white first
@@ -2398,9 +2411,12 @@
     }
     c.drawImage(composite(), 0, 0, cv.width, cv.height);
     cv.toBlob(function (blob) {
+      if (!blob) {
+        toast('Export failed — the browser could not encode a ' + plan.w + '×' + plan.h + ' image');
+        return;
+      }
       saveBlob(blob, filename || 'pixelstudioedit.png');
-      var kb = blob ? Math.round(blob.size / 1024) : 0;
-      toast('Exported ' + cv.width + '×' + cv.height + ' · ' + kb + ' KB');
+      toast('Exported ' + cv.width + '×' + cv.height + ' · ' + Math.round(blob.size / 1024) + ' KB');
     }, format || 'image/png', quality);
   }
 
@@ -3343,7 +3359,12 @@
       '</select></div>' +
       '<div class="row"><label>Scale</label><select id="dlg-scale">' +
       [1, 2, 4, 8, 10, 16, 20].map(function (s) {
-        return '<option value="' + s + '"' + (s === 1 ? ' selected' : '') + '>' + s + '× (' + (S.w * s) + '×' + (S.h * s) + ')</option>';
+        /* An option the browser cannot encode is offered as disabled rather
+           than silently producing nothing when it is picked. */
+        var plan = C.fitExport(S.w, S.h, s);
+        var label = s + '× (' + (S.w * s) + '×' + (S.h * s) + ')';
+        if (!plan.ok) return '<option value="' + s + '" disabled>' + label + ' — too large</option>';
+        return '<option value="' + s + '"' + (s === 1 ? ' selected' : '') + '>' + label + '</option>';
       }).join('') + '</select></div>' +
       '<div class="row"><label>Quality</label><input type="range" id="dlg-quality" min="40" max="100" value="92"><b id="dlg-quality-val">92</b></div>' +
       '<div class="row"><label>Name</label><input type="text" id="dlg-name" value="pixelstudioedit"></div>' +
