@@ -4,6 +4,8 @@ let puppeteer;
 try { puppeteer = require('puppeteer-core'); }
 catch (e) { puppeteer = require('/usr/lib/node_modules/puppeteer-core'); }
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const FILE = process.argv[2] || 'file://' + path.resolve(__dirname, '..', 'index.html');
 
 const results = [];
@@ -357,12 +359,32 @@ const check = (name, ok, detail) => {
   check('new document resets to 64', resetSize.w === 64 && resetSize.h === 64, JSON.stringify(resetSize));
 
   // 13a4 photo import must stay sharp (no blocky upscale)
+  /* The fixture is generated here rather than assumed to exist: this suite used
+     to accept a hard-coded /scratch/work/test-photo.png, so on any other machine
+     the chooser was handed a missing path and the three photo checks below could
+     never pass. A gradient plus discs gives the vertical centre column the many
+     distinct colours those checks look for. */
+  const photoPath = path.join(os.tmpdir(), 'pse-test-photo.png');
+  const photoPng = await page.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 600; c.height = 900;
+    const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 600, 900);
+    g.addColorStop(0, '#ff7b54'); g.addColorStop(0.5, '#ffd56b'); g.addColorStop(1, '#38bdf8');
+    x.fillStyle = g; x.fillRect(0, 0, 600, 900);
+    for (let i = 0; i < 400; i++) {
+      x.fillStyle = 'hsl(' + ((i * 7) % 360) + ',70%,' + (40 + i % 40) + '%)';
+      x.beginPath(); x.arc((i * 97) % 600, (i * 53) % 900, 6 + (i % 9), 0, Math.PI * 2); x.fill();
+    }
+    return c.toDataURL('image/png');
+  });
+  fs.writeFileSync(photoPath, Buffer.from(photoPng.split(',')[1], 'base64'));
   await page.evaluate(() => { const st = document.querySelector('#start'); if (st) st.hidden = false; });
   const [chooser] = await Promise.all([
     page.waitForFileChooser({ timeout: 5000 }),
     page.evaluate(() => document.querySelector('#start-photo').click())
   ]);
-  await chooser.accept(['/scratch/work/test-photo.png']);
+  await chooser.accept([photoPath]);
   await new Promise(r => setTimeout(r, 1200));
   const photoState = await page.evaluate(() => {
     const st = window.PS.state;
@@ -538,8 +560,9 @@ const check = (name, ok, detail) => {
 
   // 13g PWA assets and style thumbnails
   // over file:// fetch() is blocked, so check the markup plus the files on disk
-  const fs = require('fs');
-  const pathMod = require('path');
+  /* fs and path are required at the top of this file; a second `const fs` in
+     this scope is a temporal-dead-zone error for every earlier use. */
+  const pathMod = path;
   const root = pathMod.resolve(__dirname, '..');
   const pwa = await page.evaluate(() => ({
     link: !!document.querySelector('link[rel="manifest"]'),
@@ -653,8 +676,16 @@ const check = (name, ok, detail) => {
   // 19 nirbhar toolkit: cards, a live preview, apply and the multilingual manual
   await page.evaluate(() => document.querySelector('.tab[data-tab="nirbhar"]').click());
   await new Promise(r => setTimeout(r, 300));
-  const nbCards = await page.evaluate(() => document.querySelectorAll('[data-nb-tool]').length);
-  check('nirbhar hub lists every tool', nbCards === 14, nbCards);
+  /* Compare against the tools the module declares, not a number typed here:
+     this check said 14 while the toolkit had already grown to 18, so it failed
+     on every run and stopped being a signal. */
+  const nbCounts = await page.evaluate(() => ({
+    declared: window.PSNirbharUI.tools.length,
+    cards: document.querySelectorAll('[data-nb-tool]').length
+  }));
+  check('nirbhar hub lists every tool',
+    nbCounts.cards === nbCounts.declared && nbCounts.declared >= 18,
+    JSON.stringify(nbCounts));
   await page.evaluate(() => document.querySelector('[data-nb-tool="cut"]').click());
   await new Promise(r => setTimeout(r, 800));
   const nbPreview = await page.evaluate(() => {
@@ -684,7 +715,9 @@ const check = (name, ok, detail) => {
     tools: document.querySelectorAll('.nb-manual-tool').length
   }));
   check('nirbhar manual is multilingual', nbManual.langs >= 9, JSON.stringify(nbManual));
-  check('nirbhar manual covers every tool', nbManual.tools === 14, nbManual.tools);
+  check('nirbhar manual covers every tool',
+    nbManual.tools === nbCounts.declared && nbManual.tools >= 18,
+    JSON.stringify({ manual: nbManual.tools, declared: nbCounts.declared }));
   await page.evaluate(() => document.querySelector('.nb-overlay [data-close]').click());
   await new Promise(r => setTimeout(r, 150));
   await page.evaluate(() => document.querySelector('[data-nb-tool="paper"]').click());
@@ -715,15 +748,23 @@ const check = (name, ok, detail) => {
     return { sheetAtBottom: r.bottom >= window.innerHeight - 2, tabsVisible: document.querySelector('#tabs').getBoundingClientRect().height > 20 };
   });
   check('mobile sheet docks at bottom', mob.sheetAtBottom && mob.tabsVisible, JSON.stringify(mob));
-  await page.screenshot({ path: 'shot-mobile.png' });
+  const shotMobile = path.join(os.tmpdir(), 'pse-shot-mobile.png');
+  await page.screenshot({ path: shotMobile });
   await page.setViewport({ width: 1440, height: 900 });
   await new Promise(r => setTimeout(r, 300));
 
   // 21 errors
-  check('no page errors', errors.length === 0, errors.slice(0, 5).join(' | '));
+  /* A network failure for a third-party origin is not a page error: the optional
+     AI background remover fetches a model from cdn.jsdelivr.net, and a sandbox
+     or an offline machine makes that fail by design — the fallback is checked
+     separately above. Script errors and same-origin 404s still fail here. */
+  const realErrors = errors.filter(e => !/net::ERR_(CERT|NAME|CONNECTION|INTERNET|BLOCKED|TIMED_OUT|ADDRESS)/.test(e));
+  check('no page errors', realErrors.length === 0, realErrors.slice(0, 5).join(' | '));
   check('no missing elements', warns.length === 0, warns.slice(0, 5).join(' | '));
 
-  await page.screenshot({ path: 'shot-desktop.png' });
+  const shotDesktop = path.join(os.tmpdir(), 'pse-shot-desktop.png');
+  await page.screenshot({ path: shotDesktop });
+  console.log('screenshots: ' + shotMobile + ' ' + shotDesktop);
 
   const fails = results.filter(r => !r.ok).length;
   console.log(fails ? `\n${fails} FAILING` : '\nALL UI CHECKS PASSED');
