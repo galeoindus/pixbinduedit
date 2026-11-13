@@ -182,3 +182,14 @@ test('a stroke draws with the cheap filter and the resting frame with the sharp 
   assert.match(app, /var moving = !!\(S\.strokeActive \|\| S\.drag \|\| S\.panning \|\| S\.preview\)/);
   assert.match(app, /imageSmoothingQuality = \(moving && drawRatio < 0\.9\) \? 'low' : 'high'/);
 });
+
+test('the offline shell installs wherever the platform calls the page secure', () => {
+  /* The guard used to be `https:` or `localhost`, so a page served from
+     127.0.0.1 or [::1] — both of which the platform treats as trustworthy —
+     never registered the service worker at all. The rule now follows the
+     platform: https, or http inside a secure context. */
+  assert.match(app, /location\.protocol === 'https:' \|\| \(location\.protocol === 'http:' && window\.isSecureContext === true\)/);
+  assert.doesNotMatch(app, /location\.hostname === 'localhost'/);
+  /* file:// reports isSecureContext true, so the protocol check has to stay */
+  assert.match(app, /'serviceWorker' in navigator &&/);
+});
