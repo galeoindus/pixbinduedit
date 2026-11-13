@@ -172,5 +172,17 @@ ok('fitExport keeps the aspect ratio of what it clamps',
 ok('fitExport never exceeds the max canvas side',
   [1, 2, 4, 8, 10, 16, 20].every((s) => { const p = C.fitExport(4096, 4096, s); return !p.ok || (p.w <= 32767 && p.h <= 32767); }));
 
+/* ------------------------------------------------------- exportNeedsMatte
+ * The export filled a white matte for every format that was not PNG, so a
+ * transparent sprite exported as .webp came out as a white box even though WebP
+ * has an alpha channel. Only JPEG genuinely needs the matte.
+ */
+ok('exportNeedsMatte: WebP keeps transparency', C.exportNeedsMatte('image/webp') === false);
+ok('exportNeedsMatte: WebP in any case keeps transparency', C.exportNeedsMatte('IMAGE/WEBP') === false);
+ok('exportNeedsMatte: PNG keeps transparency', C.exportNeedsMatte('image/png') === false);
+ok('exportNeedsMatte: the default format keeps transparency', C.exportNeedsMatte(undefined) === false);
+ok('exportNeedsMatte: JPEG needs a matte', C.exportNeedsMatte('image/jpeg') === true);
+ok('exportNeedsMatte: the image/jpg alias needs a matte', C.exportNeedsMatte('image/jpg') === true);
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL CORE TESTS PASSED');
 process.exit(fails?1:0);

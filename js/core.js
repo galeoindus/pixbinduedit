@@ -675,6 +675,20 @@
   var EXPORT_MAX_AREA = 134217728;   /* 128 MP, half of Chrome's 2^28 */
   var EXPORT_MAX_SIDE = 32767;       /* half of Chrome's 65,535 */
 
+  /* Which export formats need an opaque matte painted underneath.
+   *
+   * PNG and WebP both carry an alpha channel; JPEG does not, and drawing onto a
+   * cleared canvas makes its transparency encode as black. The export used to
+   * fill white for everything that was not PNG, which flattened every
+   * transparent sprite exported as .webp onto a white box. Verified in
+   * Chromium: a cleared canvas re-encoded as image/webp keeps alpha 0 at the
+   * corner, the same canvas as image/jpeg comes back alpha 255.
+   */
+  function exportNeedsMatte(format) {
+    var f = String(format || 'image/png').toLowerCase();
+    return !(f === 'image/png' || f === 'image/webp');
+  }
+
   /* The largest whole-number export scale that fits, never above the one asked
      for. Returns { ok, scale, w, h, area, clamped } - ok is false only when not
      even 1x can be encoded, in which case nothing should be drawn at all. */
@@ -736,6 +750,7 @@
     dominantColors: dominantColors,
     autoKey: autoKey,
     fitExport: fitExport,
+    exportNeedsMatte: exportNeedsMatte,
     fitExport: fitExport,
     resample: resample,
     stripes: stripes,

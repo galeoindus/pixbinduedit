@@ -2405,7 +2405,10 @@
     cv.width = plan.w; cv.height = plan.h;
     var c = cv.getContext('2d');
     c.imageSmoothingEnabled = false;
-    if (format !== 'image/png') {           // JPEG has no alpha: fill white first
+    /* JPEG has no alpha channel and needs a white matte; PNG and WebP both keep
+       transparency, so filling white for WebP turned every sprite exported as
+       .webp into a white box. The rule lives in js/core.js so it is testable. */
+    if (C.exportNeedsMatte(format)) {
       c.fillStyle = '#ffffff';
       c.fillRect(0, 0, cv.width, cv.height);
     }
