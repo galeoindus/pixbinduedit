@@ -1,16 +1,21 @@
-# Weekly health run — the checks a push does not trigger.
+# Daily health run — the checks a push does not trigger.
 #
 # ci.yml covers every push and pull request. Nothing runs when the repository
 # is quiet, so the things that rot slowly go unnoticed: an asset renamed out of
 # index.html, a service-worker shell entry that no longer exists, the GitHub
-# Pages deployment failing after an unrelated change. This runs every Monday
-# at 03:45 IST (22:15 UTC on Sunday) and on demand.
+# Pages deployment failing after an unrelated change. This runs every day at
+# 03:45 IST (22:15 UTC) and on demand.
+#
+# It was weekly. It runs daily now so it lines up with the agent's five-hourly
+# maintenance pass: the workflow proves the deployed site still works even on a
+# day when nobody pushed anything, and the agent pass is what actually reads the
+# code and repairs it.
 name: scheduled health
 
 on:
   schedule:
-    # 22:15 UTC Sunday = 03:45 IST Monday, just after the dependabot runs.
-    - cron: '15 22 * * 0'
+    # 22:15 UTC = 03:45 IST the next morning, just after the dependabot runs.
+    - cron: '15 22 * * *'
   workflow_dispatch:
 
 permissions:
