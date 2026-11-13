@@ -1,6 +1,6 @@
 {
-  "name": "Pixbindu",
-  "short_name": "pixbindu",
+  "name": "PixbinduEdit",
+  "short_name": "pixbinduedit",
   "description": "Pixel art and text editor in your browser — 3D text, stickers, layers, palettes, templates and PNG/JPEG/WebP export.",
   "start_url": "./",
   "scope": "./",

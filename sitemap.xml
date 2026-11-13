@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<!-- PixbinduEdit is a single page. One URL, one entry: a sitemap that lists
+     paths the site does not serve is worse than no sitemap at all.
+     lastmod is bumped by hand whenever the page itself changes. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://galeoindus.github.io/pixbindu/</loc>
+    <loc>https://galeoindus.github.io/pixbinduedit/</loc>
     <lastmod>2026-11-13</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://galeoindus.github.io/pixbinduedit/docs/preview.png</image:loc>
+      <image:title>PixbinduEdit — pixel art and text editor in the browser</image:title>
+      <image:caption>The PixbinduEdit editor: a canvas, a tool rail and the text, layer and colour panels.</image:caption>
+    </image:image>
   </url>
 </urlset>

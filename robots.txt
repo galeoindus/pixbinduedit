@@ -1,8 +1,11 @@
-# Pixbindu serves exactly one page. Everything else on this host is a
-# 404 with a noindex tag, so nothing here needs to be blocked from crawling:
-# Google has to be able to fetch a page to see that it is gone.
+# PixbinduEdit serves exactly one page. Everything else on this host is a 404
+# with a noindex tag, so nothing here needs to be blocked from crawling:
+# a crawler has to be able to fetch a page to see that it is gone.
+#
+# The only path deliberately excluded is the error page itself, which must never
+# appear in a result of its own.
 User-agent: *
 Allow: /
 Disallow: /404.html
 
-Sitemap: https://galeoindus.github.io/pixbindu/sitemap.xml
+Sitemap: https://galeoindus.github.io/pixbinduedit/sitemap.xml

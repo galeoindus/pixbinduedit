@@ -1,6 +1,6 @@
 # The Nirbhar manual
 
-*निर्भर — "self-reliant". The offline toolkit built into Pixbindu.*
+*निर्भर — "self-reliant". The offline toolkit built into PixbinduEdit.*
 
 This is the same manual the editor shows in **Nirbhar → Manual**, which switches language in one tap. It is written here in English and Hindi; inside the app it also reads in Bengali, Tamil, Telugu, Marathi, Gujarati, Kannada, Malayalam and Punjabi.
 
@@ -10,7 +10,7 @@ This is the same manual the editor shows in **Nirbhar → Manual**, which switch
 
 ### What Nirbhar is
 
-Nirbhar means self-reliant. It is the offline toolbox built into Pixbindu: eighteen tools that remove a background, put a new one behind it, lift photo quality, upscale, make a PDF, build an app icon, lay out a photo grid, draw generative art and more. Everything is computed by this page on your own device. There is no upload, no account, no API key, no model download and no internet connection involved.
+Nirbhar means self-reliant. It is the offline toolbox built into PixbinduEdit: eighteen tools that remove a background, put a new one behind it, lift photo quality, upscale, make a PDF, build an app icon, lay out a photo grid, draw generative art and more. Everything is computed by this page on your own device. There is no upload, no account, no API key, no model download and no internet connection involved.
 
 ### Start in four steps
 
@@ -206,7 +206,7 @@ markers, and translate the text between them. Nothing else has to change.
 
 ### Nirbhar क्या है
 
-निर्भर का मतलब है आत्मनिर्भर। यह पिक्सबिंदु में बना एक ऑफलाइन टूलबॉक्स है: इसमें तेरह टूल्स हैं जो बैकग्राउंड हटाते हैं, फोटो की क्वालिटी सुधारते हैं, अपस्केल करते हैं, PDF बनाते हैं, ऐप आइकन बनाते हैं, जेनेरेटिव आर्ट ड्रॉ करते हैं और भी बहुत कुछ। सब कुछ आपके अपने डिवाइस पर इसी पेज द्वारा प्रोसेस होता है। इसमें कोई अपलोड, कोई अकाउंट, कोई API की, कोई मॉडल डाउनलोड और कोई इंटरनेट कनेक्शन शामिल नहीं है।
+निर्भर का मतलब है आत्मनिर्भर। यह PixbinduEdit में बना एक ऑफलाइन टूलबॉक्स है: इसमें तेरह टूल्स हैं जो बैकग्राउंड हटाते हैं, फोटो की क्वालिटी सुधारते हैं, अपस्केल करते हैं, PDF बनाते हैं, ऐप आइकन बनाते हैं, जेनेरेटिव आर्ट ड्रॉ करते हैं और भी बहुत कुछ। सब कुछ आपके अपने डिवाइस पर इसी पेज द्वारा प्रोसेस होता है। इसमें कोई अपलोड, कोई अकाउंट, कोई API की, कोई मॉडल डाउनलोड और कोई इंटरनेट कनेक्शन शामिल नहीं है।
 
 ### चार स्टेप्स में शुरू करें
 
@@ -340,5 +340,5 @@ markers, and translate the text between them. Nothing else has to change.
 
 ---
 
-*Pixbindu · Nirbhar toolkit · MIT licence. Every tool in this manual runs
+*PixbinduEdit · Nirbhar toolkit · MIT licence. Every tool in this manual runs
 in your browser; nothing is uploaded, and the manual itself works offline.*

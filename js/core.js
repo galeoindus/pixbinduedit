@@ -1,4 +1,4 @@
-/* pixbindu — core colour and raster routines.
+/* pixbinduedit — core colour and raster routines.
  * Pure functions over ImageData-like objects ({data, width, height}).
  * No DOM access, so the same file runs in the browser and under Node tests.
  * Original implementation, MIT licensed.

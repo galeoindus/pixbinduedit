@@ -1,4 +1,4 @@
-/* Pixbindu — Nirbhar toolkit UI.
+/* PixbinduEdit — Nirbhar toolkit UI.
  *
  * The panel, the tool dialogs and the multilingual manual. Every tool here
  * calls js/nirbhar.js, so nothing in this file talks to a network, a model or
@@ -9,10 +9,10 @@
   'use strict';
 
   var N = window.PSNirbhar;
-  if (!N) { console.warn('pixbindu: Nirbhar engine missing'); return; }
+  if (!N) { console.warn('pixbinduedit: Nirbhar engine missing'); return; }
 
   var I18N = window.PSNirbharI18N || { order: ['en'], names: { en: 'English' }, langs: { en: {} } };
-  var LANG_KEY = 'pixbindu.nirbhar.lang';
+  var LANG_KEY = 'pixbinduedit.nirbhar.lang';
 
   function app() { return window.PSApp || null; }
   function byId(id) { return document.getElementById(id); }
@@ -422,7 +422,7 @@
             });
             return {
               blob: new Blob([bytes], { type: 'application/pdf' }),
-              filename: 'pixbindu.pdf',
+              filename: 'pixbinduedit.pdf',
               note: pages.length + ' page' + (pages.length === 1 ? '' : 's') + ' · ' + Math.round(bytes.length / 1024) + ' KB'
             };
           });

@@ -1,4 +1,4 @@
-/* Pixbindu — editor front-end.
+/* PixbinduEdit — editor front-end.
  * Original implementation, MIT licensed. Everything runs locally in the browser.
  */
 (function () {
@@ -14,12 +14,13 @@
   /* The largest document side the editor will hold. A bigger photo is scaled
      down as a whole; it is never squashed in one direction. */
   var MAX_DOC_SIDE = 4096;
-  var AUTOSAVE_KEY = 'pixbindu.autosave.v3';
-  var RECOVERY_DB = 'pixbindu-recovery';
-  /* Both of these were renamed with the product. They are still read once, so a
-     project autosaved under the old names is not lost — see readAutosave(). */
-  var LEGACY_AUTOSAVE_KEY = 'pixelstudioedit.autosave.v3';
-  var LEGACY_RECOVERY_DB = 'pixelstudioedit-recovery';
+  var AUTOSAVE_KEY = 'pixbinduedit.autosave.v3';
+  var RECOVERY_DB = 'pixbinduedit-recovery';
+  /* The product has been renamed twice and these storage names went with it.
+     A project autosaved under an older name is usually the user's only copy, so
+     every earlier name is still read once and carried forward — newest first. */
+  var LEGACY_AUTOSAVE_KEYS = ['pixbindu.autosave.v3', 'pixelstudioedit.autosave.v3'];
+  var LEGACY_RECOVERY_DBS = ['pixbindu-recovery', 'pixelstudioedit-recovery'];
   var BLEND_MODES = {
     normal: 'source-over', multiply: 'multiply', screen: 'screen',
     overlay: 'overlay', darken: 'darken', lighten: 'lighten', difference: 'difference'
@@ -110,7 +111,7 @@
 
   function on(id, evt, fn) {
     var el = byId(id);
-    if (!el) { console.warn('pixbindu: missing element #' + id); return; }
+    if (!el) { console.warn('pixbinduedit: missing element #' + id); return; }
     el.addEventListener(evt, fn);
   }
 
@@ -2264,7 +2265,7 @@
 
   function projectObject() {
     return {
-      app: 'pixbindu', version: 5,
+      app: 'pixbinduedit', version: 5,
       w: S.w, h: S.h,
       palette: S.palette.slice(),
       groups: JSON.parse(JSON.stringify(S.groups)),
@@ -2284,7 +2285,7 @@
   }
 
   function loadProject(obj) {
-    if (!obj || !obj.layers || !obj.layers.length) { toast('Not a Pixbindu project'); return; }
+    if (!obj || !obj.layers || !obj.layers.length) { toast('Not a PixbinduEdit project'); return; }
     S.w = obj.w || 64; S.h = obj.h || 64;
     S.layers = obj.layers.map(function (o) {
       var l = mkLayer(o.name || 'Layer');
@@ -2371,15 +2372,16 @@
     } catch (err) { db.close(); done(null); }
   }
 
-  /* The editor was renamed, and the two places it keeps an unfinished project
-     were renamed with it. A project autosaved under the old names is usually
-     the user's only copy, so it is read once and carried over rather than
-     being silently left behind. */
-  function readLegacyRecovery(done) {
+  /* Tries each earlier database in turn, newest first, and copies whatever it
+     finds into the current one before handing it back. A project autosaved
+     under an old name is usually the user's only copy. */
+  function readLegacyRecovery(done, index) {
+    if (index >= LEGACY_RECOVERY_DBS.length) { done(null); return; }
+    var name = LEGACY_RECOVERY_DBS[index];
     openRecoveryDb(function (db) {
-      if (!db) { done(null); return; }
+      if (!db) { readLegacyRecovery(done, index + 1); return; }
       readStoredProject(db, function (value) {
-        if (!value) { done(null); return; }
+        if (!value) { readLegacyRecovery(done, index + 1); return; }
         openRecoveryDb(function (target) {
           if (!target) { done(value); return; }
           try {
@@ -2391,30 +2393,32 @@
           } catch (err) { target.close(); done(value); }
         });
       });
-    }, LEGACY_RECOVERY_DB, true);
+    }, name, true);
   }
 
   function readAutosave(done) {
     var local = null;
     try { local = localStorage.getItem(AUTOSAVE_KEY); } catch (err) {}
     if (!local) {
-      try {
-        var legacy = localStorage.getItem(LEGACY_AUTOSAVE_KEY);
-        if (legacy) {
-          local = legacy;
-          try {
-            localStorage.setItem(AUTOSAVE_KEY, legacy);
-            localStorage.removeItem(LEGACY_AUTOSAVE_KEY);
-          } catch (err) {}
-        }
-      } catch (err) {}
+      for (var i = 0; i < LEGACY_AUTOSAVE_KEYS.length && !local; i++) {
+        try {
+          var legacy = localStorage.getItem(LEGACY_AUTOSAVE_KEYS[i]);
+          if (legacy) {
+            local = legacy;
+            try {
+              localStorage.setItem(AUTOSAVE_KEY, legacy);
+              localStorage.removeItem(LEGACY_AUTOSAVE_KEYS[i]);
+            } catch (err) {}
+          }
+        } catch (err) {}
+      }
     }
     if (local) { done(local); return; }
     openRecoveryDb(function (db) {
-      if (!db) { readLegacyRecovery(done); return; }
+      if (!db) { readLegacyRecovery(done, 0); return; }
       readStoredProject(db, function (value) {
         if (value) { done(value); return; }
-        readLegacyRecovery(done);
+        readLegacyRecovery(done, 0);
       });
     });
   }
@@ -2482,7 +2486,7 @@
         toast('Export failed — the browser could not encode a ' + plan.w + '×' + plan.h + ' image');
         return;
       }
-      saveBlob(blob, filename || 'pixbindu.png');
+      saveBlob(blob, filename || 'pixbinduedit.png');
       toast('Exported ' + cv.width + '×' + cv.height + ' · ' + Math.round(blob.size / 1024) + ' KB');
     }, format || 'image/png', quality);
   }
@@ -2704,7 +2708,7 @@
     on('m-open', 'click', function () { byId('menu-pop').hidden = true; byId('file-open').click(); });
     on('m-save', 'click', function () {
       byId('menu-pop').hidden = true;
-      saveBlob(new Blob([JSON.stringify(projectObject())], { type: 'application/json' }), 'pixbindu-project.json');
+      saveBlob(new Blob([JSON.stringify(projectObject())], { type: 'application/json' }), 'pixbinduedit-project.json');
       toast('Project saved');
     });
     on('m-import', 'click', function () { byId('menu-pop').hidden = true; byId('file-import').click(); });
@@ -3411,9 +3415,9 @@
         '" fill="' + fill + '"' + strokeAttrs + shadowFilter + transform + '>' + tspans + '</text>');
     });
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' +
-      S.w + '" height="' + S.h + '" viewBox="0 0 ' + S.w + ' ' + S.h + '"><title>Pixbindu design</title><defs>' +
+      S.w + '" height="' + S.h + '" viewBox="0 0 ' + S.w + ' ' + S.h + '"><title>PixbinduEdit design</title><defs>' +
       defs.join('') + '</defs>' + body.join('') + '</svg>';
-    saveBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), 'pixbindu-design.svg');
+    saveBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), 'pixbinduedit-design.svg');
     toast('SVG exported — editable text and shapes are preserved');
   }
 
@@ -3443,7 +3447,7 @@
       '<div class="row"><label for="dlg-scale">Scale</label><select id="dlg-scale">' +
       scaleOptions('image/png') + '</select></div>' +
       '<div class="row"><label for="dlg-quality">Quality</label><input type="range" id="dlg-quality" min="40" max="100" value="92"><b id="dlg-quality-val">92</b></div>' +
-      '<div class="row"><label for="dlg-name">Name</label><input type="text" id="dlg-name" value="pixbindu"></div>' +
+      '<div class="row"><label for="dlg-name">Name</label><input type="text" id="dlg-name" value="pixbinduedit"></div>' +
       '<p class="hint">Nearest-neighbour scaling keeps pixels sharp. Quality applies to JPEG and WebP.</p>',
       function (ov) {
         var scale = +$('#dlg-scale', ov).value || 1;
@@ -3452,7 +3456,7 @@
         var ext = format === 'image/jpeg' ? '.jpg' : (format === 'image/webp' ? '.webp' : '.png');
         /* A name made only of punctuation sanitises to nothing, which used to
            save a file called just ".png". Fall back to the default instead. */
-        var name = ($('#dlg-name', ov).value || '').replace(/[^\w\-]+/g, '-').replace(/^-+|-+$/g, '') || 'pixbindu';
+        var name = ($('#dlg-name', ov).value || '').replace(/[^\w\-]+/g, '-').replace(/^-+|-+$/g, '') || 'pixbinduedit';
         exportImage(scale, name + ext, format, quality);
       }, 'Download');
     var q = byId('dlg-quality');
@@ -3486,7 +3490,7 @@
       if (k === 'y') { e.preventDefault(); redo(); return; }
       if (k === 's') {
         e.preventDefault();
-        saveBlob(new Blob([JSON.stringify(projectObject())], { type: 'application/json' }), 'pixbindu-project.json');
+        saveBlob(new Blob([JSON.stringify(projectObject())], { type: 'application/json' }), 'pixbinduedit-project.json');
         return;
       }
       if (k === 'a') { e.preventDefault(); S.sel = { x: 0, y: 0, w: S.w, h: S.h }; render(); return; }

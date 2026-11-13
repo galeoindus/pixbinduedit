@@ -1,8 +1,8 @@
-/* Pixbindu — offline shell.
+/* PixbinduEdit — offline shell.
    Cache-first for the app shell, network-first for everything else.
    The Nirbhar toolkit and the self-hosted fonts are part of the shell, so the
    editor keeps working with the network switched off. */
-const VERSION = 'pixbindu-v15';
+const VERSION = 'pixbinduedit-v16';
 const SHELL = [
   './',
   'index.html',

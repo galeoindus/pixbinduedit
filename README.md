@@ -1,16 +1,16 @@
-# Pixbindu
+# PixbinduEdit
 
 A free, open-source pixel art **and text** editor that runs entirely in your browser. No install, no account, no uploads — every pixel stays on your machine.
 
-**Live editor:** [galeoindus.github.io/pixbindu](https://galeoindus.github.io/pixbindu/)
+**Live editor:** [galeoindus.github.io/pixbinduedit](https://galeoindus.github.io/pixbinduedit/)
 
 **Nirbhar toolkit:** eighteen offline tools inside the editor — background remover, photo enhancer, upscaler, photo-to-pixel-art converter, neon glow, animated GIF maker, sprite-sheet slicer, PDF maker, icon pack, SVG export, generative art and more. No upload, no account, no model download. See the [manual](docs/NIRBHAR_MANUAL.md).
 
-![Pixbindu screenshot](docs/preview.png)
+![PixbinduEdit screenshot](docs/preview.png)
 
 ## Why it exists
 
-Most pixel editors are desktop-only or locked behind a subscription, and most "text on photo" apps are ad-supported. Pixbindu is a single static site: open `index.html` and start drawing or typing. The feature set follows what people expect from a mobile pixel-art editor — layers, 3D text, stickers, gradients, palettes, background removal — but the code and assets are new and MIT licensed.
+Most pixel editors are desktop-only or locked behind a subscription, and most "text on photo" apps are ad-supported. PixbinduEdit is a single static site: open `index.html` and start drawing or typing. The feature set follows what people expect from a mobile pixel-art editor — layers, 3D text, stickers, gradients, palettes, background removal — but the code and assets are new and MIT licensed.
 
 ## Interface
 
@@ -166,8 +166,8 @@ Open `index.html` in a browser — no build step, no dependencies.
 To run it locally with a server (recommended, so autosave and file APIs behave predictably):
 
 ```bash
-git clone https://github.com/galeoindus/pixbindu.git
-cd pixbindu
+git clone https://github.com/galeoindus/pixbinduedit.git
+cd pixbinduedit
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
@@ -256,4 +256,4 @@ Issues and pull requests are welcome. Keep `js/core.js` free of DOM access so th
 
 MIT — see [LICENSE](LICENSE).
 
-Pixbindu is an independent project. It is not affiliated with, endorsed by, or derived from the source code or assets of any commercial pixel-art app.
+PixbinduEdit is an independent project. It is not affiliated with, endorsed by, or derived from the source code or assets of any commercial pixel-art app.

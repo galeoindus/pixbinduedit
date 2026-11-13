@@ -1,4 +1,4 @@
-/* Pixbindu — Nirbhar engine.
+/* PixbinduEdit — Nirbhar engine.
  *
  * "Nirbhar" (निर्भर → self-reliant) is the offline toolkit: every routine in this
  * file runs on your own device, uses no network, no model download, no API key
@@ -1332,7 +1332,7 @@
     out.push('<?xml version="1.0" encoding="UTF-8"?>');
     out.push('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
       'width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">');
-    out.push('<!-- Made with Pixbindu · Nirbhar Vector -->');
+    out.push('<!-- Made with PixbinduEdit · Nirbhar Vector -->');
     if (opts.background && opts.background !== 'none') {
       out.push('<rect width="' + w + '" height="' + h + '" fill="' + esc(opts.background) + '"/>');
     }

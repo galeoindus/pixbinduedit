@@ -1,4 +1,4 @@
-/* Pixbindu — Nirbhar worker.
+/* PixbinduEdit — Nirbhar worker.
  *
  * The heavy tools (background removal, enhancement, upscaling, tone) are pure
  * maths over a pixel buffer, so they can run off the main thread and the editor

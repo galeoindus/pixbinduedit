@@ -99,16 +99,18 @@ test('object transform toolbar binds every button without breaking editor boot',
   assert.match(binding, /^\s*\$\$\(/, 'uses querySelectorAll helper for all transform controls');
 });
 
-/* The product was renamed and its two storage names changed with it. A project
- * autosaved before the rename is the user's only copy, so the new names must be
- * read after the old ones, never instead of them. */
-test('an autosave written before the rename is still recovered', () => {
-  assert.match(app, /var LEGACY_AUTOSAVE_KEY = 'pixelstudioedit\.autosave\.v3'/);
-  assert.match(app, /var LEGACY_RECOVERY_DB = 'pixelstudioedit-recovery'/);
+/* The product has been renamed more than once and its storage names changed with
+ * it. A project autosaved before a rename is the user's only copy, so the new
+ * names must be read after the old ones, never instead of them. */
+test('an autosave written before a rename is still recovered', () => {
+  /* The product has been renamed twice. Every earlier storage name has to stay
+     readable, newest first, or a project saved before a rename is lost. */
+  assert.match(app, /var LEGACY_AUTOSAVE_KEYS = \['pixbindu\.autosave\.v3', 'pixelstudioedit\.autosave\.v3'\]/);
+  assert.match(app, /var LEGACY_RECOVERY_DBS = \['pixbindu-recovery', 'pixelstudioedit-recovery'\]/);
   const read = app.slice(app.indexOf('function readAutosave(done)'), app.indexOf('function queueAutosave()'));
-  assert.match(read, /localStorage\.getItem\(LEGACY_AUTOSAVE_KEY\)/);
-  assert.match(read, /readLegacyRecovery\(done\)/);
-  /* a read of the old database must not create an empty one on a fresh machine */
+  assert.match(read, /localStorage\.getItem\(LEGACY_AUTOSAVE_KEYS\[i\]\)/);
+  assert.match(read, /readLegacyRecovery\(done, 0\)/);
+  /* a read of an old database must not create an empty one on a fresh machine */
   assert.match(app, /deleteDatabase\(name\)/);
 });
 

@@ -1,4 +1,4 @@
-/* Self-hosted webfonts — Pixbindu loads no font from the network. */
+/* Self-hosted webfonts — PixbinduEdit loads no font from the network. */
 @font-face{font-family:'Press Start 2P';font-style:normal;font-weight:400;font-display:swap;src:url('press-start-2p-400.woff2') format('woff2');}
 @font-face{font-family:'Bungee';font-style:normal;font-weight:400;font-display:swap;src:url('bungee-400.woff2') format('woff2');}
 @font-face{font-family:'Lobster';font-style:normal;font-weight:400;font-display:swap;src:url('lobster-400.woff2') format('woff2');}
