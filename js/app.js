@@ -2669,7 +2669,7 @@
         '<h4>4 · Photo &amp; pixel art</h4><p class="hint">The Photo tab resizes, crops, removes backgrounds and turns a photo into pixel art with a palette and dithering.</p>' +
         '<h4>5 · Export</h4><p class="hint">Export PNG (transparency), JPEG or WebP at 1×–20×. Projects save as JSON and reopen with layers and text intact.</p>' +
         '<h4>6 · Phone &amp; tablet</h4><p class="hint">The bottom handle opens or closes the inspector. One finger draws; use two fingers to zoom and pan. Lift both fingers and tap again to resume drawing. Rotate the device when you need a wider workspace.</p>' +
-        '<h4>7 · Offline &amp; recovery</h4><p class="hint">After the first visit, install the app from your browser menu and reopen it offline. Projects autosave on this device; use Restore autosave if needed. The fourteen Nirbhar tools and the ten-language manual work locally. The optional AI background-removal beta needs a one-time model download (about 40 MB); your photo is still processed on this device and is never uploaded.</p>' +
+        '<h4>7 · Offline &amp; recovery</h4><p class="hint">After the first visit, install the app from your browser menu and reopen it offline. Projects autosave on this device; use Restore autosave if needed. The eighteen Nirbhar tools and the ten-language manual work locally. The optional AI background-removal beta needs a one-time model download (about 40 MB); your photo is still processed on this device and is never uploaded.</p>' +
         '<h4>Shortcuts</h4><div class="hint" style="line-height:1.9">' +
         '<b>B</b> pencil · <b>E</b> eraser · <b>G</b> fill · <b>I</b> eyedropper<br>' +
         '<b>L</b> line · <b>R</b> rectangle · <b>O</b> ellipse<br>' +
