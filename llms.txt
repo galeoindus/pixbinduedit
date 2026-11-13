@@ -22,6 +22,10 @@ any static host.
 - Everything — drawing, layers, text styling, filters, dithering, PNG/JPEG/WebP
   export, project save and load — runs in the browser tab. Nothing is uploaded
   and no API key is involved.
+- Export offers PNG, JPEG and WebP at 1× to 20×, limited by what the browser and the
+  format can hold: 268,435,456 px of canvas area, and 16,383 px a side for WebP.
+  The dialog disables a scale that would have to be clamped instead of silently
+  writing a smaller or cropped file.
 - The **Nirbhar** toolkit (eighteen offline tools: background remover, photo-to-pixel-art converter, neon glow, animated GIF
   maker, sprite-sheet slicer, photo
   enhancer, upscaler, halftone, seamless tiles, palette studio, PDF maker, icon

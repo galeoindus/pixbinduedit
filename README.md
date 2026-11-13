@@ -106,7 +106,12 @@ The modes follow the job you picked on the start screen: *Create a design* and *
 
 **Files**
 - Export a hybrid **editable SVG**: text and basic shapes stay vector objects; pixel layers and complex text effects are embedded as raster images
-- Export **PNG, JPEG or WebP** at 1×–20× with nearest-neighbour upscaling and a quality slider
+- Export **PNG, JPEG or WebP** at 1×–20× with nearest-neighbour upscaling and a quality slider.
+  PNG and WebP keep transparency; JPEG gets a white matte. The dialog only offers a scale the
+  chosen format can actually hold — a browser cannot encode more than 268,435,456 pixels in
+  total, and WebP stores each side in 14 bits, so it stops at 16,383 px (Chromium crops a bigger
+  one without warning). An option that would have to be clamped is shown disabled with the largest
+  scale that does fit.
 - Save/open projects as `.json` (layers preserved)
 - **Import a photo at its native size** — "Edit a photo" resizes the document to the image first and draws it 1:1, so photos stay sharp instead of being downsampled and blown back up
 - Autosave to local storage, restorable at any time; when local storage is full, the latest recovery project falls back to IndexedDB
