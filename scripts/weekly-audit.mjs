@@ -125,12 +125,12 @@ if (existsSync(sitemapPath)) {
     }
   }
 
-  /* Anything that is not the canonical page must say so. GitHub Pages answers
+  /* Anything that is not the canonical page must say so. The host answers
      every other path with 404.html; if that page is indexable, Google keeps
      old addresses alive. */
   const notFoundPath = join(ROOT, '404.html');
   if (!existsSync(notFoundPath)) {
-    problems.push('404.html is missing: GitHub Pages would serve its own indexable 404');
+    problems.push('404.html is missing: the host would serve its own indexable 404');
   } else if (!/<meta\s+name=["']robots["'][^>]*noindex/i.test(readFileSync(notFoundPath, 'utf8'))) {
     problems.push('404.html is not marked noindex');
   }

@@ -14,14 +14,10 @@
 # account has none and `pages deploy` answers "Project not found" until the
 # project exists. That is a missing project, not a broken repository.
 #
-# The project is pixbinduedit, matching this repository. Cloudflare keeps the
-# subdomain a project was created with, so the host is
-# https://pixelstudioedit-8kc.pages.dev/ (the plain pixelstudioedit.pages.dev
-# name belongs to another account).
-#
-# The canonical URL in index.html, the sitemap and robots.txt point at the
-# GitHub Pages address, which is where the site is published today. Move those
-# to the Pages host in one commit if this becomes the primary address.
+# The project is pixbinduedit, matching this repository, and its host is
+# https://pixbinduedit.pages.dev/ — the address the canonical tag, the sitemap,
+# robots.txt and the structured data all name. Change them together, in one
+# commit, if the project is ever renamed.
 
 name = "pixbinduedit"
 compatibility_date = "2026-01-01"

@@ -2,7 +2,7 @@
 
 A free, open-source pixel art **and text** editor that runs entirely in your browser. No install, no account, no uploads — every pixel stays on your machine.
 
-**Live editor:** [galeoindus.github.io/pixbinduedit](https://galeoindus.github.io/pixbinduedit/)
+**Live editor:** [pixbinduedit.pages.dev](https://pixbinduedit.pages.dev/)
 
 **Nirbhar toolkit:** eighteen offline tools inside the editor — background remover, photo enhancer, upscaler, photo-to-pixel-art converter, neon glow, animated GIF maker, sprite-sheet slicer, PDF maker, icon pack, SVG export, generative art and more. No upload, no account, no model download. See the [manual](docs/NIRBHAR_MANUAL.md).
 
@@ -206,7 +206,7 @@ tests/responsive.test.js  responsive layout, device profile and pointer gesture 
 tests/manual.test.js  checks the English and Hindi manuals cover all eighteen tools
 tests/ui.js         headless browser test: boots the app and drives every control
 manifest.json       PWA manifest (installable app)
-404.html            what GitHub Pages serves for a missing path — noindex, never crawled into the index
+404.html            the not-found page — noindex, never crawled into the index
 robots.txt          allows every crawler and names the sitemap
 sitemap.xml         the one canonical URL of the site
 sw.js               service worker caching the app shell for offline use
@@ -238,9 +238,10 @@ The editor is one page at one address, and the repository keeps it that way:
   `WebApplication` structured data.
 - `sitemap.xml` lists that single canonical URL; `robots.txt` names the same
   sitemap file.
-- `404.html` answers every other path with `noindex, nofollow`. GitHub Pages
-  uses it automatically for a missing path, so an old or mistyped address never
-  turns into a second indexed page or a stray sitelink.
+- `404.html` answers every other path with `noindex, nofollow`, so an old or
+  mistyped address never turns into a second indexed page or a stray sitelink.
+  Cloudflare Pages serves it for a missing path when it is listed in
+  `_redirects`; the hosting dashboard sets the rest.
 - `scripts/weekly-audit.mjs` fails if the canonical, the sitemap and the
   `robots.txt` line stop agreeing, or if `404.html` loses its `noindex`.
 
@@ -252,11 +253,10 @@ is seen, or removed with Search Console → Removals → New request.
 
 The editor is static files: wherever they are served from, it runs.
 
-**GitHub Pages** serves it from `https://galeoindus.github.io/pixbinduedit/`,
-which is the address the canonical tag, the sitemap and `robots.txt` name. The
-`404.html` is written for that host.
-
-**Cloudflare Pages** is the second target:
+**Cloudflare Pages** serves it from `https://pixbinduedit.pages.dev/`, which is
+the address the canonical tag, the sitemap, `robots.txt` and the structured data
+name. There is no other host: nothing in this repository points at an old
+address.
 
 ```bash
 node scripts/deploy.mjs        # creates the project if it is missing, then uploads
@@ -276,12 +276,10 @@ repository. The workflow in `.github/workflows/deploy.yml` creates it before
 every upload, so a fresh account only needs the two repository secrets
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
-The Pages project is named `pixbinduedit`, matching the repository. Cloudflare
-keeps the subdomain a project was created with, so the host is
-`https://pixelstudioedit-8kc.pages.dev/` — the plain
-`pixelstudioedit.pages.dev` name belongs to another account. If Cloudflare
-becomes the primary address, move the canonical, the sitemap, the `robots.txt`
-line and the Open Graph URL to that host in one commit.
+The Pages project is named `pixbinduedit`, matching the repository, and the host
+is `https://pixbinduedit.pages.dev/`. That address is written once into
+`index.html`, `sitemap.xml`, `robots.txt` and `llms.txt`; if the project is ever
+renamed, change those four in one commit.
 
 ---
 
